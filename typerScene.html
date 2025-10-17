@@ -731,8 +731,12 @@
 
 						<div class="hotkey-list" style="margin-top:8px">
 							<div class="hotkey-item">
-								<span class="hotkey-key">F6</span>
+								<span class="hotkey-key">F4</span>
 								<span class="hotkey-desc">Mute / Unmute sound</span>
+							</div>
+							<div class="hotkey-item">
+								<span class="hotkey-key">F6</span>
+								<span class="hotkey-desc">Toggle generation</span>
 							</div>
 							<div class="hotkey-item">
 								<span class="hotkey-key">F7</span>
@@ -2094,16 +2098,29 @@ _start:
 		if (ev.key === 'F1'){ return; }
 		if (ev.key === 'F2'){ return; }
 		if (ev.key === 'F3'){ return; }
-		if (ev.key === 'F4'){ return; }
-		if (ev.key === 'F5'){ return; }
 		// F6 = mute / unmute
-		if (ev.key === 'F6') {
+		if (ev.key === 'F4'){
 			soundMuted = !soundMuted;
 			const btn = document.getElementById('toggleSoundBtn');
 			if (btn) {
 				btn.textContent = soundMuted ? '🔇 Muted' : '🔊 Sound On';
 				btn.style.opacity = soundMuted ? 0.6 : 1;
 			}
+			ev.preventDefault();
+			return;
+		}
+		if (ev.key === 'F5'){ return; }
+		// F6: toggle generation mode
+		if (ev.key === 'F6') {
+			// Se sto tentando di attivarla ma c'è un file caricato → blocca e avvisa
+			const wantsOn = !generateChk.checked;
+			if (wantsOn && userLoadedFile) {
+				alert('Generation is disabled because a file is loaded. Clear the file to enable generation.');
+				return;
+			}
+			generateChk.checked = wantsOn;
+			// notifica i listener esistenti (mantiene la logica unica)
+			generateChk.dispatchEvent(new Event('change', { bubbles: true }));
 			ev.preventDefault();
 			return;
 		}
@@ -2123,6 +2140,9 @@ _start:
 			updateCleanBtn && updateCleanBtn();
 			return;
 		}
+		// F10 = toggle pc stats in cleanMode
+		if (ev.key === 'F10'){ return; }
+		if (ev.key === 'F12'){ return; }
 
 		// ESC = Exit clean mode / clear board
 		if (ev.key === 'Escape'){
@@ -2162,8 +2182,6 @@ _start:
 			return;
 		}
 
-		if (ev.key === 'F10'){ return; }
-		if (ev.key === 'F12'){ return; }
 
 		ev.preventDefault();
 
@@ -2626,7 +2644,7 @@ if (applyColorBtn){
 	applyColorBtn.addEventListener('click', ()=>{
 		const hex = normalizeHex(colorHexInput?.value || '');
 		if (hex) setCodeColor(hex);
-			else alert('Inserisci un HEX valido (es. #39ff14 o #3f3)');
+			else alert('Insert a valid HEX (#39ff14 o #3f3)');
 	});
 }
 
@@ -2636,7 +2654,7 @@ if (colorHexInput){
 		if (ev.key === 'Enter'){
 			const hex = normalizeHex(colorHexInput.value);
 			if (hex) setCodeColor(hex);
-				else alert('Inserisci un HEX valido (es. #39ff14 o #3f3)');
+				else alert('Insert a valid HEX (#39ff14 o #3f3)');
 		}
 	});
 }
