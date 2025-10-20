@@ -11,14 +11,26 @@
 
 		<title>TyperScene — Cinematic</title>
 		<style>
+		/* ---------- Root variables (unified) ---------- */
 		:root{
+			/* theme */
 			--bg:#000000;
 			--panel:#061014;
 			--text:#b6ffb6;
 			--accent:#39ff14;
 			--muted:#6f9a6f;
-			--mono: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+			--mono:"JetBrains Mono","Fira Code","Courier New",monospace;
+
+			/* tabs */
+			--tab-border: rgba(255,255,255,0.12);
+			--tab-hover:  rgba(57,255,20,0.35);
+			--tab-active-bg: linear-gradient(180deg,#2a30345c,#041018);
+
+			/* help browsers prefer dark controls */
+			color-scheme: dark;
 		}
+
+		/* ---------- Base / Layout ---------- */
 		html,body{
 			margin:0;
 			min-height:100%;
@@ -26,29 +38,27 @@
 			font-family:var(--mono);
 			-webkit-font-smoothing:antialiased;
 		}
-
-		html{ background:#000; }  /* colore di base del canvas */
-
+		html{ background:#000; }
 		body{
 			min-height:100vh;
-			background: linear-gradient(180deg,#000 0%, #021218 60%) fixed;
-			background-repeat: no-repeat;
+			background: linear-gradient(180deg,#000 0%, #021218 60%) fixed no-repeat;
 			background-size: 100% 100%;
 		}
+		.container{display:flex;min-height:100vh;gap:18px;padding:18px 18px 24px;box-sizing:border-box;transition:all .25s ease}
 
-		.container{display:flex;min-height:100vh;gap:18px;padding:18px;box-sizing:border-box;transition:all .25s ease; padding-bottom: 24px;}
-		.left{flex:1;display:flex;flex-direction:column;gap:14px;transition:all .25s ease}
+		/* left column + code palette vars */
 		.left{
-			--code-mono: "JetBrains Mono", monospace;
+			flex:1;
+			display:flex;
+			flex-direction:column;
+			gap:14px;
+			transition:all .25s ease;
+
+			--code-mono:"JetBrains Mono",monospace;
 			--kw:#7fffb5; --type:#7ee0ff; --str:#ffd19a; --num:#ffb3b3;
 			--comment:#6a7b6a; --fn:#ffd1ff; --punct:#cfe8ff; --loglevel:#ffb86b;
-			/* colore base del testo di codice */
-			--code-color: #b6ffb6;
-
-			/* cursore usa di default lo stesso colore del testo */
-			--cursor-color: var(--code-color);
-
-			/* palette per sintassi (valori iniziali) */
+			--code-color:#b6ffb6;               /* default code color */
+			--cursor-color: var(--code-color);   /* cursor inherits code color */
 		}
 
 		header{display:flex;align-items:center;gap:12px}
@@ -57,336 +67,57 @@
 		.controls label{font-size:13px;color:var(--muted)}
 		.btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.03);padding:8px 10px;border-radius:8px;color:var(--text);cursor:pointer}
 		.small{font-size:13px;padding:6px 8px}
+
+		/* ---------- Preview / Screen ---------- */
 		.preview{
-			position: relative;
-			min-height: 400px;
-			flex: 0 0 auto;
-			background:radial-gradient(circle at 10% 10%, rgba(57,255,20,0.03), rgba(255,255,255,0.01)), #020405;
+			position:relative;
+			min-height:400px;
+			flex:0 0 auto;
+			background: radial-gradient(circle at 10% 10%, rgba(57,255,20,0.03), rgba(255,255,255,0.01)), #020405;
 			border-radius:10px;
 			padding:18px;
-			overflow-y: hidden;
-			overflow-x: hidden;
+			overflow:hidden;
 			box-shadow:0 12px 40px rgba(0,0,0,0.8);
 			border:1px solid rgba(57,255,20,0.04);
 		}
+		.noCursor{ cursor:none; }
 
-		.noCursor {
-            cursor: none;
-        }
-
-		/* code */
 		.screen-wrap{position:relative;min-height:320px;max-height:calc(100vh - 220px);overflow:auto}
 		#screen{
 			white-space:pre-wrap;
 			font-size:18px;
 			line-height:1.25;
 			margin:0;
-			color:var(--text);
-			font-family:var(--code-mono);
+			color:var(--code-color);
+			font-family:var(--code-mono) !important;
 			text-shadow:0 1px 0 rgba(0,0,0,0.6);
 			padding-bottom:40px;
-			overflow-wrap: anywhere;
-			overflow-y: auto;
-			overflow-x: hidden;
-			word-break: break-word;
-			hyphens: auto;
+			overflow-wrap:anywhere;
+			overflow-y:auto;
+			overflow-x:hidden;
+			word-break:break-word;
+			hyphens:auto;
+			transition: font-family .3s ease;
+			animation: slightFlicker 6s infinite;
 		}
-		/* blinking cursor */
-		.cursor{
-			position:absolute; top:0; left:0;
-			width:10px; height:20px;
-			background: var(--cursor-color);
-			opacity:.95; border-radius:2px;
-			box-shadow:
-				0 0 12px var(--cursor-color),
-				0 0 24px color-mix(in srgb, var(--cursor-color) 60%, transparent);
-			animation: blink 1s steps(2) infinite, pulse 2s infinite;
-			pointer-events:none;
-			transition: top .1s linear, left .1s linear, background-color .2s ease;
-			will-change: top, left, opacity;
-		}
-		@keyframes pulse{
-		0%,100% { box-shadow:0 0 12px var(--cursor-color), 0 0 24px color-mix(in srgb, var(--cursor-color) 60%, transparent); }
-		50%{ box-shadow:0 0 18px var(--cursor-color), 0 0 36px color-mix(in srgb, var(--cursor-color) 75%, transparent); }
-		}
-
-		@keyframes blink{0%{opacity:1}50%{opacity:.15}100%{opacity:1}}
-		#screen{animation:slightFlicker 6s infinite;}
 		@keyframes slightFlicker{
-		0%{opacity:.98;filter:hue-rotate(0deg) contrast(1);}
-		3%{opacity:.92;filter:hue-rotate(0deg) contrast(.98);}
-		6%{opacity:.98;filter:hue-rotate(1deg) contrast(1.02);}
-		100%{opacity:.99;filter:hue-rotate(0deg) contrast(1);}
+		0%{opacity:.98;filter:hue-rotate(0deg) contrast(1)}
+		3%{opacity:.92;filter:hue-rotate(0deg) contrast(.98)}
+		6%{opacity:.98;filter:hue-rotate(1deg) contrast(1.02)}
+		100%{opacity:.99;filter:hue-rotate(0deg) contrast(1)}
 		}
 
-		.right{width:360px;display:flex;flex-direction:column;gap:12px;transition:all .25s ease}
-		.panel{background:linear-gradient(180deg,#041018,var(--panel));padding:12px;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,0.6)}
-		input[type="file"]{color:var(--muted)}
-		.chip{background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:8px;font-size:13px}
-		.footer{font-size:12px;color:var(--muted);margin-top:6px}
-
-		/* syntax highlighting */
-		.kw{color:var(--kw);}
+		/* ---------- Syntax tokens ---------- */
+		.kw{color:var(--kw)}
 		.type{color:var(--type)}
 		.str{color:var(--str)}
 		.num{color:var(--num)}
 		.comment{color:var(--comment);font-style:italic}
 		.fn{color:var(--fn)}
 		.punct{color:var(--punct)}
-		.loglevel{color:var(--loglevel);}
+		.loglevel{color:var(--loglevel)}
 
-
-		/* === CLEAN / CINEMA MODE === */
-		.clean-body{background:#000!important;}
-		.clean header,.clean .controls,.clean .right,.clean .footer{display:none!important;}
-		.clean .preview{
-			border-radius:0!important;
-			padding:28px!important;
-			box-shadow:none!important;
-			border:0!important;
-			width:100vw;height:100vh;
-			overflow-y: auto;
-			overflow-x: hidden;
-		}
-		.clean .screen-wrap{
-			min-height:100vh;max-height:100vh;
-			display:flex;align-items:flex-start;justify-content:flex-start;
-			padding-top:28px;box-sizing:border-box;
-			overflow-y: auto;
-			overflow-x: hidden;
-		}
-		.clean #screen{font-size:22px;padding-bottom:0;}
-		.clean .cursor{height:26px;width:12px;}
-		.clean #screen::selection{background:transparent;}
-		/* hide ALL scrollbars */
-		.clean::-webkit-scrollbar{width:0;height:0;}
-		.clean *::-webkit-scrollbar{width:0;height:0;}
-		.clean{scrollbar-width:none!important;-ms-overflow-style:none!important;}
-		.clean *{scrollbar-width:none!important;-ms-overflow-style:none!important;}
-
-		@media(max-width:900px){.right{width:260px}#screen{font-size:16px}}
-
-		@keyframes crtFlicker {
-		0%, 100% { opacity: 0.2; filter: brightness(1); }
-		50% { opacity: 0.3; filter: brightness(1.05); }
-		}
-
-		/* Aiuta i browser a usare controlli scuri di default */
-		:root { color-scheme: dark; }
-
-		/* Stile globale per i select del progetto */
-		select,
-		#fontSelect, #themeSelect, #cursorSelect {
-			appearance: none;
-			-webkit-appearance: none;
-			-moz-appearance: none;
-			width: 100%;
-			box-sizing: border-box;
-			background-color: rgba(255,255,255,0.03);            /* scuro traslucido */
-			border: 1px solid rgba(57,255,20,0.12);              /* verde soft */
-			color: var(--text);
-			border-radius: 8px;
-			padding: 8px 34px 8px 10px;                           /* spazio per la freccia */
-			font-family: var(--mono);
-			line-height: 1.2;
-		}
-
-		/* Freccia custom (verde) come background image */
-		select,
-		#fontSelect, #themeSelect, #cursorSelect {
-			background-image:
-				url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%2339ff14'><path d='M7 10l5 5 5-5z'/></svg>");
-			background-repeat: no-repeat;
-			background-position: right 10px center;
-			background-size: 12px;
-		}
-
-		/* Hover / Focus */
-		select:hover,
-		#fontSelect:hover, #themeSelect:hover, #cursorSelect:hover {
-			border-color: rgba(57,255,20,0.3);
-		}
-		select:focus,
-		#fontSelect:focus, #themeSelect:focus, #cursorSelect:focus {
-			outline-offset: 2px;
-			border-color: rgba(57,255,20,0.6);
-		}
-
-		/* Disabilitato */
-		select:disabled { opacity:.55; cursor:not-allowed; }
-
-		/* Dropdown menu (supporto varia per browser; funziona bene su Firefox/Chromium) */
-		select option {
-			background-color: #041018;         /* fondo scuro coerente */
-			color: var(--text);
-		}
-
-		/* Se hai già classi .btn sui select, garantisci che non sovrascrivano il bg chiaro */
-		select.btn { background-color: rgba(255,255,255,0.03); }
-
-		/* Clean mode: i pannelli sono nascosti, ma lascio la regola per completezza */
-		.clean select { background-color: rgba(0,0,0,0.25); }
-
-		#audioPanel {
-			margin-top: 10px;
-		}
-		#audioPanel button {
-			font-family: var(--mono);
-		}
-		#audioPanel input[type="range"] {
-			accent-color: #39ff14;
-			cursor: pointer;
-		}
-
-		#sourcePanel {
-			margin-top: 12px;
-			flex-shrink: 0;
-		}
-
-		#sourcePanel textarea {
-			resize: vertical;
-			min-height: 120px;
-			max-height: 450px;
-			background: #020b0d;
-			flex:1 1 auto;
-			min-height:0;   /* evita overflow in flex */
-		}
-
-		.left .panel {
-			width: 100%;
-			box-sizing: border-box;
-		}
-
-		#fontSelect {
-			background: rgba(255,255,255,0.03);
-			color: var(--text);
-			border: 1px solid rgba(255,255,255,0.05);
-			border-radius: 8px;
-			font-family: var(--mono);
-		}
-		#fontPanel label {
-			font-family: var(--mono);
-		}
-
-		#screen{
-			transition: font-family 0.3s ease;
-		}
-		#screen{ font-family: var(--code-mono) !important; }
-		#screen{ color: var(--code-color) !important; }
-
-		.subpanels{
-			display: grid;
-			grid-template-columns: 2fr 1fr;  /* Source 2/3 — colonna destra 1/3 */
-			grid-template-rows: 1fr 1fr auto;/* riga1 Font, riga2 Dynamics, riga3 Hotkeys */
-			gap: 12px;
-			margin-top: 12px;
-			width: 100%;
-			box-sizing: border-box;
-		}
-
-		/* Source occupa due righe a sinistra */
-		#sourcePanel{ grid-column: 1; grid-row: 1 / span 2; }
-
-		/* Font in alto a destra */
-		#fontPanel{ grid-column: 2; grid-row: 1; }
-
-		/* Nuovo pannello Dynamics in basso a destra */
-		#dynamicsPanel{ grid-column: 2; grid-row: 2; }
-
-		/* Hotkeys su tutta la riga in basso */
-		#hotkeysPanel{ grid-column: 1 / -1; align-self: start; }
-
-		/* Layout pulito dentro Dynamics */
-		#dynamicsPanel .dyn-stack{ display:flex; flex-direction:column; gap:12px; margin-top:8px; }
-		#dynamicsPanel .dyn-row{ display:flex; flex-direction:column; gap:6px; }
-		#dynamicsPanel .field-label{ font-size:13px; color:var(--muted); font-family:var(--mono); }
-		#dynamicsPanel input[type="range"]{ accent-color:#39ff14; cursor:pointer; }
-
-		/* Stack sinistro elastico: il preview riempie lo spazio sopra i subpanels */
-		.left{ display: flex; flex-direction: column; }
-
-		/* Responsive: su schermi stretti i pannelli si impilano */
-		@media (max-width:1100px){
-			.subpanels{ grid-template-columns: 1fr; }
-		}
-
-		/* Pulizia in clean mode */
-		.clean #editorSubpanels,
-		.clean #hotkeysPanel{ display:none !important; }
-
-
-		/* Subpanels: altezza controllata via CSS var impostata da JS */
-		.subpanels {
-			height: var(--subpanels-h, auto);
-		}
-
-		/* I pannelli dentro il subpanels si distendono verticalmente */
-		.subpanels .panel {
-			display: flex;
-			flex-direction: column;
-		}
-
-		/* Source textarea riempie il suo pannello */
-		#sourcePanel textarea {
-			flex: 1 1 auto;
-			min-height: 0;           /* avoid overflow issues in flex context */
-		}
-
-		#source{
-			box-sizing: border-box;
-			width: 100%;
-			max-width: 100%;
-			display: block;
-			overflow-x: hidden;
-		}
-
-		/* Font panel: contenuto scrollabile se serve */
-		#fontPanel .font-stack {
-			flex: 1 1 auto;
-			min-height: 0;
-			overflow: auto;
-		}
-
-		/* In clean mode il subpanels va nascosto comunque (probabilmente lo hai già) */
-		.clean #editorSubpanels { display: none !important; }
-
-		/* Impila verticalmente su schermi stretti (puoi lasciare la tua soglia) */
-		@media (max-width: 1100px){
-			.subpanels{
-				grid-template-columns: 1fr;
-			}
-		}
-		/* Evita forzature di larghezza dentro la griglia */
-		.left .panel{ width: auto; }
-		/* Font / Appearance: layout verticale e comodo su spazi stretti */
-		#fontPanel { margin-top: 12px; overflow: hidden;}
-		#fontPanel .font-stack { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; overflow-x: hidden;}
-		#fontPanel .font-row { display: flex; flex-direction: column; gap: 6px; }
-		#fontPanel .field-label { font-size: 13px; color: var(--muted); font-family: var(--mono); }
-		#fontPanel .field-value { font-size: 12px; color: var(--muted); align-self: flex-end; }
-		#fontPanel .w-full { width: 100%; }
-		#fontPanel select { background: rgba(255,255,255,0.03); color: var(--text);
-			border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; font-family: var(--mono); }
-		#fontPanel input[type="range"] { accent-color: #39ff14; cursor: pointer; }
-		#sourcePanel input[type="range"] { accent-color: #39ff14; cursor: pointer; }
-
-		/* Tab Text Color */
-		#colorPanel { margin-top: 10px; }
-		.swatch-grid {
-			display: grid;
-			grid-template-columns: repeat(6, 24px);
-			gap: 8px;
-		}
-		.swatch {
-			width: 24px; height: 24px;
-			border-radius: 6px;
-			border: 1px solid rgba(255,255,255,0.15);
-			background: var(--sw);
-			cursor: pointer;
-		}
-		.swatch:focus-visible { outline: 2px solid #39ff14; outline-offset: 2px; }
-
-		/* Monocolore: disabilita i colori della sintassi e usa solo --code-color */
+		/* Monocolore: usa solo --code-color */
 		.mono #screen .kw,
 		.mono #screen .type,
 		.mono #screen .str,
@@ -396,10 +127,97 @@
 		.mono #screen .punct,
 		.mono #screen .loglevel { color: inherit !important; }
 
-		/* Clean mode: nascondi anche il pannello colore */
-		.clean #colorPanel { display: none !important; }
+		/* ---------- Right column ---------- */
+		.right{width:360px;display:flex;flex-direction:column;gap:12px;transition:all .25s ease}
 
-		.theme-grid{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px; }
+		/* ---------- Generic panel ---------- */
+		.panel{
+			background:linear-gradient(180deg,#041018,var(--panel));
+			padding:12px;
+			border-radius:10px;
+			box-shadow:0 6px 24px rgba(0,0,0,0.6);
+			box-sizing:border-box;
+		}
+		input[type="file"]{color:var(--muted)}
+		.chip{background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:8px;font-size:13px}
+		.footer{font-size:12px;color:var(--muted);margin-top:6px}
+
+		/* ---------- Selects (global) ---------- */
+		select,
+		#fontSelect,#themeSelect,#cursorSelect{
+			appearance:none;-webkit-appearance:none;-moz-appearance:none;
+			width:100%;box-sizing:border-box;
+			background-color:rgba(255,255,255,0.03);
+			border:1px solid rgba(57,255,20,0.12);
+			color:var(--text);
+			border-radius:8px;
+			padding:8px 34px 8px 10px;
+			font-family:var(--mono);
+			line-height:1.2;
+			background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%2339ff14'><path d='M7 10l5 5 5-5z'/></svg>");
+			background-repeat:no-repeat;
+			background-position:right 10px center;
+			background-size:12px;
+		}
+		select:hover,
+		#fontSelect:hover,#themeSelect:hover,#cursorSelect:hover{ border-color:rgba(57,255,20,0.3) }
+		select:focus,
+		#fontSelect:focus,#themeSelect:focus,#cursorSelect:focus{ outline-offset:2px;border-color:rgba(57,255,20,0.6) }
+		select:disabled{ opacity:.55;cursor:not-allowed }
+		select option{ background-color:#041018;color:var(--text) }
+		select.btn{ background-color:rgba(255,255,255,0.03) }
+
+		/* ---------- Panels: specific ---------- */
+		#audioPanel{ margin-top:10px }
+		#audioPanel button{ font-family:var(--mono) }
+		#audioPanel input[type="range"]{ accent-color:#39ff14; cursor:pointer }
+
+		#sourcePanel{ margin-top:12px; flex-shrink:0 }
+		#sourcePanel textarea{
+			resize:vertical; min-height:120px; max-height:450px;
+			background:#020b0d; color:var(--muted);
+			flex:1 1 auto; min-height:0; width:100%;
+			border:0; border-radius:8px; padding:8px;
+		}
+		#sourcePanel input[type="range"]{ accent-color:#39ff14; cursor:pointer }
+
+		#fontSelect{
+			background:rgba(255,255,255,0.03);
+			color:var(--text);
+			border:1px solid rgba(255,255,255,0.05);
+			border-radius:8px;
+			font-family:var(--mono);
+		}
+		#fontPanel{ margin-top:12px; overflow:hidden; align-self:flex-start !important; height:auto !important; padding-bottom:8px }
+		#fontPanel label{ font-family:var(--mono) }
+		#fontPanel .font-stack{ display:flex; flex-direction:column; gap:12px; margin-top:8px; min-height:0; overflow:auto; overflow-x:hidden }
+		#fontPanel .font-row{ display:flex; flex-direction:column; gap:6px }
+		#fontPanel .field-label{ font-size:13px; color:var(--muted); font-family:var(--mono) }
+		#fontPanel .field-value{ font-size:12px; color:var(--muted); align-self:flex-end }
+		#fontPanel .w-full{ width:100% }
+		#fontPanel select{ background:rgba(255,255,255,0.03); color:var(--text); border:1px solid rgba(255,255,255,0.05); border-radius:8px; font-family:var(--mono) }
+		#fontPanel input[type="range"]{ accent-color:#39ff14; cursor:pointer }
+
+		#chunkRange{ accent-color:#39ff14 }
+
+		/* ---------- Subpanels grid (editor area) ---------- */
+		#sourcePanel{ grid-column:1; grid-row:1 / span 2 }
+		.subpanels .panel{ display:flex; flex-direction:column }
+
+		/* dynamics layout */
+		#dynamicsPanel .dyn-stack{ display:flex; flex-direction:column; gap:12px; margin-top:8px }
+		#dynamicsPanel .dyn-row{ display:flex; flex-direction:column; gap:6px }
+		#dynamicsPanel .field-label{ font-size:13px; color:var(--muted); font-family:var(--mono) }
+		#dynamicsPanel input[type="range"]{ accent-color:#39ff14; cursor:pointer }
+
+		/* helpers */
+		.subpanel,.subpanel-grid{ align-items:start } /* avoid equal-height stretching */
+		.control-row{ display:flex; align-items:center; gap:10px }
+		.control-row input[type="range"]{ flex:1 }
+		.hint{ font-size:12px; color:var(--muted); opacity:.9; margin-top:4px }
+
+		/* ---------- Theme picker / BG tiles ---------- */
+		.theme-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px }
 		.theme-btn{
 			background:rgba(255,255,255,0.03);
 			border:1px solid rgba(255,255,255,0.06);
@@ -407,323 +225,224 @@
 			padding:6px 8px;
 			font-size:13px; color:var(--text);
 			cursor:pointer; font-family:var(--mono);
-			height: 48px;
+			height:48px;
 		}
+		.theme-btn:hover{ border-color:rgba(57,255,20,0.4) }
 
-		/* Griglia dei background built-in */
-		.bg-grid{
-			display:grid;
-			grid-template-columns: repeat(3, minmax(0,1fr));
-			gap:10px;
-			width:100%;
-		}
-
+		.bg-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; width:100% }
 		.bg-tile{
-			position:relative;
-			height:56px;
-			border-radius:8px;
-			border:1px solid rgba(255,255,255,0.08);
-			cursor:pointer;
-			overflow:hidden;
+			position:relative; height:56px; border-radius:8px;
+			border:1px solid rgba(255,255,255,0.08); cursor:pointer; overflow:hidden;
 		}
-
-		.bg-tile:hover{ border-color: rgba(57,255,20,0.45); }
-		.bg-tile.active{
-			outline-offset:2px;
-			border-color: rgba(57,255,20,0.5);
-		}
-
-		/* Etichetta in basso a sinistra dentro al tile */
+		.bg-tile:hover{ border-color:rgba(57,255,20,0.45) }
+		.bg-tile.active{ outline-offset:2px; border-color:rgba(57,255,20,0.5) }
 		.bg-tile::after{
-			content: attr(data-name);
+			content:attr(data-name);
 			position:absolute; left:6px; bottom:6px;
-			font-family: var(--mono);
-			font-size:11px;
-			color: rgba(255,255,255,0.80);
-			background: rgba(0,0,0,0.35);
-			padding:2px 6px;
-			border-radius:6px;
+			font-family:var(--mono); font-size:11px; color:rgba(255,255,255,0.80);
+			background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:6px;
 		}
 
-		.theme-btn:hover{ border-color: rgba(57,255,20,0.4); }
-
-		/* Cursor styling */
-		#cursorPanel{ margin-top:10px; }
-		#cursorPanel .field-label{ font-size:13px; color:var(--muted); font-family:var(--mono); }
-		#cursorPanel .w-full{ width:100%; }
-		#cursorPanel select{
-			background: rgba(255,255,255,0.03);
-			color: var(--text);
-			border: 1px solid rgba(255,255,255,0.06);
-			border-radius: 8px;
-			font-family: var(--mono);
-		}
-		.clean #cursorPanel{ display:none !important; }
-
-		.cursor-btn.active{
-			border-color: rgba(57,255,20,0.5);
-		}
-
-		/* ===== Cursor base ===== */
-		.cursor{
-			position:absolute; top:0; left:0;
-			pointer-events:none; user-select:none;
-			animation: blink 1s steps(2) infinite;
-			z-index:5;
-			/* dimensioni dinamiche via var --lh (line-height) e 1ch */
-		}
-
-		/* default: bar sottile */
-		.cursor--bar{
-			width: 2px;
-			height: var(--lh, 20px);
-			background: var(--cursor-color);
-		}
-
-		/* vintage: mezzo blocco inferiore (▄) */
-		.cursor--vintage{
-			width: 1ch;
-			height: calc(var(--lh, 20px) / 2);
-			background: var(--cursor-color);
-			transform: translateY(calc(var(--lh, 20px) / 2));
-		}
-
-		/* sottolineatura singola */
-		.cursor--underline{
-			width: 1ch;
-			height: 2px;
-			background: var(--cursor-color);
-			transform: translateY(calc(var(--lh, 20px) - 2px));
-		}
-
-		/* sottolineatura doppia */
-		.cursor--double{
-			width: 1ch;
-			height: 2px;
-			background: var(--cursor-color);
-			transform: translateY(calc(var(--lh, 20px) - 4px)); /* solleva di 2px */
-			box-shadow: 0 2px 0 var(--cursor-color);           /* seconda linea */
-		}
-
-		/* casella piena */
-		.cursor--box{
-			width: 1ch;
-			height: var(--lh, 20px);
-			background: var(--cursor-color);
-		}
-
-		/* casella vuota */
-		.cursor--box-empty{
-			width: 1ch;
-			height: var(--lh, 20px);
-			border: 1px solid var(--cursor-color);
-			background: transparent;
-		}
-
-		/* Clean mode: il pannello non serve */
-		.clean #cursorPanel { display:none !important; }
-
-		/* Disattiva qualsiasi animazione del cursore quando la checkbox è OFF */
-		.cursor.no-blink { animation: none !important; }
-
-		.site-footer{
-			margin-top: 12px;
-			padding: 10px 18px;
-			background: linear-gradient(180deg, #041018, #060d12);
-			border-top: 1px solid rgba(255,255,255,0.06);
-			color: var(--muted);
-			text-align: center;
-		}
-
-		.footer-content{
-			max-width: 1200px;
-			margin: 0 auto;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			gap: 12px;
-			flex-wrap: wrap;
-		}
-
-		.gh-link{
-			display: inline-flex;
-			align-items: center;
-			gap: 8px;
-			text-decoration: none;
-			color: var(--text);
-			opacity: .9;
-		}
-		.gh-link:hover{ opacity: 1; }
-		.gh-link svg{ width: 18px; height: 18px; fill: currentColor; }
-		.gh-username{ font-family: var(--mono); font-size: 13px; color: var(--muted); }
-
-		/* nascondi in clean mode */
-		.clean .site-footer{ display: none !important; }
-		@media (max-width: 520px){
-			.footer-content{ flex-direction: column; }
-		}
-
-		#chunkRange {
-			accent-color: #39ff14;
-		}
-
-		/* === Bootstrap-like tabs === */
-		:root{
-			--tab-border: rgba(255,255,255,0.12);
-			--tab-hover:  rgba(57,255,20,0.35);
-			--tab-active-bg: linear-gradient(180deg,#2a30345c,#041018);
-			/*--tab-active-bg: linear-gradient(180deg,#06141a,#041018);*/
-		}
-
-		/* barra delle tab con bordo in basso */
+		/* ---------- Tabs (Bootstrap-ish) ---------- */
 		.tabs{
-			display:flex;
-			gap:0;                     /* come nav-tabs: niente gap tra pillole */
-			flex-wrap:wrap;
-			margin:0 0 10px 0;
+			display:flex; gap:0; flex-wrap:wrap; margin:0 0 10px 0;
 			border-bottom:1px solid var(--tab-border);
 		}
-
-		/* “pillole” tipo nav-link: bordi sopra/lati, senza bordo sotto */
 		.tab-btn{
-			appearance:none;
-			background:transparent;
-			color:var(--text);
-			font-family:var(--mono);
-			font-size:13px;
-			cursor:pointer;
-
-			border:1px solid transparent;
-			border-bottom:none;
-			border-top-left-radius:10px;
-			border-top-right-radius:10px;
-
-			padding:8px 14px;
-			margin-bottom:-1px;          /* sovrapponi il bordo del contenitore */
+			appearance:none; background:transparent; color:var(--text);
+			font-family:var(--mono); font-size:13px; cursor:pointer;
+			border:1px solid transparent; border-bottom:none;
+			border-top-left-radius:10px; border-top-right-radius:10px;
+			padding:8px 14px; margin-bottom:-1px;
 		}
+		.tab-btn:hover{ color:var(--text); border-color:var(--tab-hover); border-bottom-color:transparent }
+		.tab-btn.active{ background:var(--tab-active-bg); border-color:var(--tab-border); border-bottom-color:transparent }
+		.tab-content{ padding-top:10px }
+		.tab-content.hidden{ display:none }
 
-		/* hover come nav-link */
-		.tab-btn:hover{
-			color:var(--text);
-			border-color: var(--tab-hover);
-			border-bottom-color: transparent;
-		}
-
-		/* attiva: stessa logica delle nav-tabs attive */
-		.tab-btn.active{
-			background: var(--tab-active-bg);
-			border-color: var(--tab-border);
-			border-bottom-color: transparent;
-		}
-
-		/* contenuti: piccolo spacing come le tab di Bootstrap */
-		.tab-content{ padding-top: 10px; }
-		.tab-content.hidden{ display:none; }
-
+		/* ---------- Preview overlays ---------- */
 		.preview::after{
-			content:"";
-			position:absolute; inset:0;
-			pointer-events:none;
-			/* di base niente overlay */
-			background: none;
-			box-shadow: none;
+			content:""; position:absolute; inset:0; pointer-events:none; background:none; box-shadow:none;
 		}
-
-		/* Scanlines visibili su bg scuri e chiari */
 		.preview.bg-scanlines::after{
 			background: repeating-linear-gradient(
 				0deg,
-				rgba(255,255,255,0.22) 0px,  /* linea chiara */
+				rgba(255,255,255,0.22) 0px,
 				rgba(255,255,255,0.22) 1px,
 				transparent 1px,
 				transparent 3px
 				);
-			opacity: .45;
-			mix-blend-mode: soft-light;   /* funziona bene sia su scuro sia su chiaro */
+			opacity:.45; mix-blend-mode:soft-light;
 		}
-
 		.preview.bg-vignette::after{
-			/* vignetta: si somma alle scanlines perché usa box-shadow */
+			box-shadow: inset 0 0 180px rgba(0,0,0,0.55), inset 0 0 60px rgba(0,0,0,0.35);
+		}
+
+		/* ---------- Cursor (base + variants) ---------- */
+		@keyframes blink{0%{opacity:1}50%{opacity:.15}100%{opacity:1}}
+		@keyframes pulse{
+		0%,100%{ box-shadow:0 0 12px var(--cursor-color), 0 0 24px color-mix(in srgb, var(--cursor-color) 60%, transparent) }
+		50%{    box-shadow:0 0 18px var(--cursor-color), 0 0 36px color-mix(in srgb, var(--cursor-color) 75%, transparent) }
+		}
+
+		/* Base (fallback visible even without variant) */
+		.cursor{
+			position:absolute; top:0; left:0;
+			width:10px; height:20px;
+			background:var(--cursor-color);
+			opacity:.95; border-radius:2px;
 			box-shadow:
-				inset 0 0 180px rgba(0,0,0,0.55),
-				inset 0 0 60px rgba(0,0,0,0.35);
+				0 0 12px var(--cursor-color),
+				0 0 24px color-mix(in srgb, var(--cursor-color) 60%, transparent);
+			animation: blink 1s steps(2) infinite, pulse 2s infinite;
+			pointer-events:none; user-select:none;
+			will-change: top,left,opacity;
+			transition:none !important;
+			z-index:5;
 		}
+		/* Variants override size/shape */
+		.cursor--bar{ width:2px; height:var(--lh,20px); background:var(--cursor-color) }
+		.cursor--vintage{ width:1ch; height:calc(var(--lh,20px)/2); background:var(--cursor-color); transform:translateY(calc(var(--lh,20px)/2)) }
+		.cursor--underline{ width:1ch; height:2px; background:var(--cursor-color); transform:translateY(calc(var(--lh,20px) - 2px)) }
+		.cursor--double{ width:1ch; height:2px; background:var(--cursor-color); transform:translateY(calc(var(--lh,20px) - 4px)); box-shadow:0 2px 0 var(--cursor-color) }
+		.cursor--box{ width:1ch; height:var(--lh,20px); background:var(--cursor-color) }
+		.cursor--box-empty{ width:1ch; height:var(--lh,20px); border:1px solid var(--cursor-color); background:transparent }
+		.cursor.no-blink{ animation:none !important }
 
-		/* === Layout Clean: codice + stats affiancati === */
-		.clean .preview{ display:block !important; position:relative; }
+		/* Cursor select panel hidden in clean mode */
+		.clean #cursorPanel{ display:none !important }
 
-		/* Colonna stats: fissa sul bordo destro, 1/4 schermo, sempre visibile in clean+F10 */
+		/* ---------- Color picker panel ---------- */
+		#colorPanel{ margin-top:10px }
+		.swatch-grid{ display:grid; grid-template-columns:repeat(6,24px); gap:8px }
+		.swatch{
+			width:24px; height:24px; border-radius:6px;
+			border:1px solid rgba(255,255,255,0.15);
+			background:var(--sw); cursor:pointer;
+		}
+		.swatch:focus-visible{ outline:2px solid #39ff14; outline-offset:2px }
+
+		/* ---------- Stats side panel (clean+F10) ---------- */
+		.clean .preview{ display:block !important; position:relative }
 		#statsPanel{
-			display:none;
-			position:fixed;        /* <— fisso alla viewport */
-			right:0; top:0;
-			width:35vw;            /* 1/4 */
-			min-width:300px;
-			height:100vh;          /* non scorre con il testo */
-			padding:10px 12px;
-			box-sizing:border-box;
+			display:none; position:fixed; right:0; top:0;
+			width:35vw; min-width:300px; height:100vh; padding:10px 12px; box-sizing:border-box;
 			border-left:1px solid rgba(255,255,255,0.06);
-			background: linear-gradient(180deg, rgba(3,16,21,0.85), rgba(3,16,21,0.85)), var(--preview-bg);;
+			background: linear-gradient(180deg, rgba(3,16,21,0.85), rgba(3,16,21,0.85)), var(--preview-bg);
 			backdrop-filter: blur(2px);
-			z-index: 50;
-			overflow:hidden;       /* niente overflow verticale della griglia */
+			z-index:50; overflow:hidden;
 		}
-		.clean.stats-on #statsPanel{ display:block; }
+		.clean.stats-on #statsPanel{ display:block }
+		.clean.stats-on .preview{ padding-right:calc(35vw + 20px) !important }
+		.clean.stats-on #screen{ white-space:pre-wrap !important; overflow-wrap:anywhere; word-break:break-word }
 
-		/* Spazio per non far andare il codice sotto al pannello */
-		.clean.stats-on .preview{
-			padding-right: calc(35vw + 20px) !important;
-		}
-
-		/* Il codice va a capo automaticamente */
-		.clean.stats-on #screen{
-			white-space: pre-wrap !important;
-			overflow-wrap: anywhere;
-			word-break: break-word;
-		}
-
-		/* Griglia interna: 4 righe proporzionali che riempiono la colonna */
-		.stats-grid{
-			display:grid; gap:10px;
-			grid-template-rows: repeat(4, 1fr);
-			height:100%;
-		}
-
+		.stats-grid{ display:grid; gap:10px; grid-template-rows:repeat(4,1fr); height:100% }
 		.tile{
 			background: linear-gradient(180deg,#08141a,#031015);
-			border: 1px solid rgba(255,255,255,0.08);
-			border-radius: 10px;
-			padding: 8px 10px;
-			box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+			border:1px solid rgba(255,255,255,0.08);
+			border-radius:10px;
+			padding:8px 10px;
+			box-shadow:0 6px 18px rgba(0,0,0,0.45);
 			display:flex; flex-direction:column; gap:6px;
-			min-height: 0; /* importante per far stare tutto nella grid */
+			min-height:0;
 		}
-
-		.tile-h{ font-size:12px; color:var(--muted); display:flex; justify-content:space-between; }
-		.tile-m{ font-size:12px; color:var(--muted); opacity:.9; }
-
+		.tile-h{ font-size:12px; color:var(--muted); display:flex; justify-content:space-between }
+		.tile-m{ font-size:12px; color:var(--muted); opacity:.9 }
 		#statsPanel canvas{
-			width:100%; height:auto;      /* adatta alla tile */
-			aspect-ratio: 16/5;           /* mantiene proporzione */
-			image-rendering: crisp-edges;
+			width:100%; height:auto; aspect-ratio:16/5; image-rendering:crisp-edges;
 			background: radial-gradient(circle at 10% 10%, rgba(57,255,20,0.03), rgba(255,255,255,0.01));
 			border-radius:6px;
 		}
-
-		/* Stack: fa scroll dentro la tile, non oltre la viewport */
 		.stack-view{
-			margin:0; padding:6px 8px;
-			background: rgba(0,0,0,0.25);
-			border-radius:6px;
-			font-family: var(--mono);
-			font-size:12px; line-height:1.25;
-			color: var(--text);
-			white-space: pre;
-			overflow:auto;          /* se cresce, scrolla solo dentro la tile */
-			flex: 1 1 auto;         /* riempie la tile */
-			min-height: 0;
+			margin:0; padding:6px 8px; background:rgba(0,0,0,0.25);
+			border-radius:6px; font-family:var(--mono); font-size:12px; line-height:1.25; color:var(--text);
+			white-space:pre; overflow:auto; flex:1 1 auto; min-height:0;
 		}
 
+		/* ---------- Clean / Cinema mode ---------- */
+		.clean-body{ background:#000 !important }
+		.clean header,.clean .controls,.clean .right,.clean .footer{ display:none !important }
+		.clean .preview{
+			border-radius:0 !important; padding:28px !important; box-shadow:none !important; border:0 !important;
+			width:100vw; height:100vh; overflow:auto hidden;
+		}
+		.clean .screen-wrap{
+			min-height:100vh; max-height:100vh; display:flex; align-items:flex-start; justify-content:flex-start;
+			padding-top:28px; box-sizing:border-box; overflow:auto hidden;
+		}
+		.clean #screen{ font-size:22px; padding-bottom:0 }
+		.clean .cursor{ height:26px; width:12px }
+		.clean #screen::selection{ background:transparent }
+		.clean::-webkit-scrollbar,
+		.clean *::-webkit-scrollbar{ width:0; height:0 }
+		.clean, .clean *{ scrollbar-width:none !important; -ms-overflow-style:none !important }
+		.clean #editorSubpanels,
+		.clean #hotkeysPanel,
+		.clean #colorPanel{ display:none !important }
+
+		/* ---------- Footer ---------- */
+		.site-footer{
+			margin-top:12px; padding:10px 18px;
+			background: linear-gradient(180deg,#041018,#060d12);
+			border-top:1px solid rgba(255,255,255,0.06);
+			color:var(--muted); text-align:center;
+		}
+		.footer-content{
+			max-width:1200px; margin:0 auto;
+			display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap;
+		}
+		.gh-link{ display:inline-flex; align-items:center; gap:8px; text-decoration:none; color:var(--text); opacity:.9 }
+		.gh-link:hover{ opacity:1 }
+		.gh-link svg{ width:18px; height:18px; fill:currentColor }
+		.gh-username{ font-family:var(--mono); font-size:13px; color:var(--muted) }
+		.clean .site-footer{ display:none !important }
+		@media (max-width:520px){ .footer-content{ flex-direction:column } }
+
+		/* ---------- Responsive helpers ---------- */
+		@media (max-width:1100px){
+			.subpanels{ grid-template-columns:1fr }
+		}
+		@media (max-width:900px){
+			.right{ width:260px }
+			#screen{ font-size:16px }
+		}
+
+/* Griglia che affianca Source (sinistra) e la colonna destra */
+.subpanel-grid{
+  display: grid;
+  grid-template-columns: 2fr 1fr;  /* Source 2/3, colonna destra 1/3 */
+  gap: 12px;
+  align-items: stretch;            /* stesse altezze di colonna */
+}
+
+/* Colonna destra: 3 righe (Font auto, Typing 1fr, Rewind 1fr) */
+.sub-right{
+  display: grid;
+  grid-template-rows: auto 1fr 1fr;
+  gap: 12px;
+  height: 100%;
+}
+
+/* Card generiche */
+.panel{ display:flex; flex-direction:column; }
+
+/* Font: deve occupare SOLO lo spazio necessario */
+#fontPanel{
+  align-self: start;
+  height: auto;
+  min-height: 0;
+  padding-bottom: 8px;
+}
+
+/* Le due card “stirabili” per riempire lo spazio */
+#typingPanel, #rewindPanel{
+  min-height: 0; /* importante in grid */
+}
+
+/* Utility controlli */
+.control-row{ display:flex; align-items:center; gap:10px; }
+.control-row input[type="range"]{ flex:1; }
+.hint{ font-size:12px; color:var(--muted); opacity:.9; margin:6px 0 4px; }
 
 		</style>
 	</head>
@@ -767,7 +486,7 @@
 									<div class="tile-m">Uptime: <span id="uptimeLbl">0d 00:00:00</span></div>
 								</div>
 
-								<!-- NEW: Stack -->
+								<!-- Stack -->
 								<div class="tile">
 									<div class="tile-h">Stack Monitor</div>
 									<pre id="stackView" class="stack-view"></pre>
@@ -778,7 +497,7 @@
 				</div>
 
 
-				<div id="editorSubpanels" style="margin-top: 0" class="subpanels">
+				<div id="editorSubpanels" style="margin-top: 0" class="subpanel-grid">
 					<!-- Source text panel -->
 					<div class="panel" id="sourcePanel">
 						<label class="chip">Source Text</label>
@@ -786,12 +505,14 @@
 						<textarea id="source" style="width:100%;margin-top:8px;background:#021218;color:var(--muted);border-radius:8px;padding:8px;border:0;"></textarea>
 					</div>
 
-					<!-- Font panel -->
-					<div class="panel" id="fontPanel">
-						<label class="chip">Font</label>
-						<div class="font-stack">
-							<div class="font-row">
-								<label style="font-size:13px;color:var(--muted)">Select code font:</label>
+					<!-- Colonna destra accanto a Source text -->
+					<div id="subRight" class="sub-right">
+						<!-- Font Panel -->
+						<div class="panel" id="fontPanel">
+							<label class="chip">Font</label>
+
+							<div class="control">
+								<div class="hint">Select code font:</div>
 								<select id="fontSelect" class="btn small" style="flex:1;max-width:240px">
 									<option value="'JetBrains Mono', monospace">JetBrains Mono</option>
 									<option value="'Ubuntu Mono', monospace">Ubuntu Mono</option>
@@ -804,72 +525,56 @@
 									<option value="'Space Mono', monospace">Space Mono</option>
 									<option value="'VT323', monospace">VT323</option>
 								</select>
+								<div id="fontSelectWrap"><!-- select esistente qui --></div>
 							</div>
-							<div class="font-row">
-								<label class="field-label">Font size</label>
-								<input type="range" id="fontSizeRange" min="12" max="26" value="18" class="w-full">
-								<div id="fontSizeVal" class="field-value">18px</div>
+
+							<div class="control">
+								<div class="hint">Font size</div>
+								<div class="control-row">
+									<input id="fontSizeRange" type="range" min="12" max="28" step="1">
+									<span id="fontSizeVal">18px</span>
+								</div>
 							</div>
 						</div>
-					</div>
 
-					<!-- Typing / Dynamics -->
-					<div class="panel" id="dynamicsPanel">
-						<label class="chip">Typing / Dynamics</label>
-						<div class="dyn-stack">
-							<!-- Chunk per tasto -->
-							<div class="dyn-row">
-								<label for="chunkRange" class="field-label">Chunk per key</label>
-								<input id="chunkRange" type="range" min="1" max="12" value="1" />
-								<div class="field-label" style="align-self:flex-end"><span id="chunkVal">1</span></div>
+						<!-- Typing Panel -->
+						<div class="panel" id="typingPanel">
+							<label class="chip">Typing</label>
+
+							<div class="control">
+								<div class="hint">Chunk per key</div>
+								<div class="control-row">
+									<input id="chunkRange" type="range" min="1" max="12" step="1">
+									<span id="chunkVal">4</span>
+								</div>
 							</div>
 
-							<!-- Rewind speed -->
-							<div class="dyn-row">
-								<label for="rewindSpeedRange" class="field-label">Rewind speed</label>
-								<input id="rewindSpeedRange" type="range" min="1" max="10" value="5">
-								<div id="rewindSpeedVal" class="field-label" style="align-self:flex-end">x5</div>
-								<label class="chip" style="display:flex;align-items:center;gap:8px">
-									<input type="checkbox" id="rewindAnimChk" checked>
-									Rewind animation
-								</label>
+							<!-- Se usi il burst delay, lascialo qui -->
+							<div class="control" id="burstBlock">
+								<div class="hint">Burst delay</div>
+								<div class="control-row">
+									<input id="burstDelayRange" type="range" min="2" max="60" step="1" value="12">
+									<span id="burstDelayVal">12ms</span>
+								</div>
 							</div>
 						</div>
-					</div>
 
-					<!-- Hotkeys panel -->
-					<div class="panel" id="hotkeysPanel">
-						<label class="chip">Hotkeys / Controls</label>
+						<!-- Rewind Panel -->
+						<div class="panel" id="rewindPanel">
+							<label class="chip">Rewind</label>
 
-						<div class="hotkey-list" style="margin-top:8px">
-							<div class="hotkey-item">
-								<span class="hotkey-key">F4</span>
-								<span class="hotkey-desc">Mute / Unmute sound</span>
+							<div class="control">
+								<div class="hint">Rewind speed</div>
+								<div class="control-row">
+									<input id="rewindSpeedRange" type="range" min="1" max="20" step="1">
+									<span id="rewindSpeedVal">x5</span>
+								</div>
 							</div>
-							<div class="hotkey-item">
-								<span class="hotkey-key">F6</span>
-								<span class="hotkey-desc">Toggle generation</span>
-							</div>
-							<div class="hotkey-item">
-								<span class="hotkey-key">F7</span>
-								<span class="hotkey-desc">Toggle fast typing mode</span>
-							</div>
-							<div class="hotkey-item">
-								<span class="hotkey-key">F8</span>
-								<span class="hotkey-desc">Rewind (animated reset)</span>
-							</div>
-							<div class="hotkey-item">
-								<span class="hotkey-key">F9</span>
-								<span class="hotkey-desc">Toggle clean mode (fullscreen coding)</span>
-							</div>
-							<div class="hotkey-item">
-								<span class="hotkey-key">F10</span>
-								<span class="hotkey-desc">Toggle PC stats (clean mode only)</span>
-							</div>
-							<div class="hotkey-item">
-								<span class="hotkey-key">Esc</span>
-								<span class="hotkey-desc">Clear screen / Exit clean mode</span>
-							</div>
+
+							<label class="chip" style="display:flex;align-items:center;gap:8px;margin-top:8px">
+								<input type="checkbox" id="rewindAnimChk" checked>
+								Rewind animation
+							</label>
 						</div>
 					</div>
 				</div>
@@ -1037,6 +742,42 @@
 						</div>
 					</div>
 				</div>
+
+				<!-- Hotkeys panel -->
+				<div class="panel" id="hotkeysPanel">
+					<label class="chip">Hotkeys / Controls</label>
+
+					<div class="hotkey-list" style="margin-top:8px">
+						<div class="hotkey-item">
+							<span class="hotkey-key">F4</span>
+							<span class="hotkey-desc">Mute / Unmute sound</span>
+						</div>
+						<div class="hotkey-item">
+							<span class="hotkey-key">F6</span>
+							<span class="hotkey-desc">Toggle generation</span>
+						</div>
+						<div class="hotkey-item">
+							<span class="hotkey-key">F7</span>
+							<span class="hotkey-desc">Toggle fast typing mode</span>
+						</div>
+						<div class="hotkey-item">
+							<span class="hotkey-key">F8</span>
+							<span class="hotkey-desc">Rewind (animated reset)</span>
+						</div>
+						<div class="hotkey-item">
+							<span class="hotkey-key">F9</span>
+							<span class="hotkey-desc">Toggle clean mode (fullscreen coding)</span>
+						</div>
+						<div class="hotkey-item">
+							<span class="hotkey-key">F10</span>
+							<span class="hotkey-desc">Toggle PC stats (clean mode only)</span>
+						</div>
+						<div class="hotkey-item">
+							<span class="hotkey-key">Esc</span>
+							<span class="hotkey-desc">Clear screen / Exit clean mode</span>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 		<footer class="site-footer">
@@ -1098,6 +839,11 @@
 
 	let rewindAnimated = true;
 	let rewindRAF = null; // requestAnimationFrame id
+
+	let burstTimer = null;      // setInterval attivo durante il “micro-typing”
+	let burstLeft  = 0;         // quanti caratteri mancano nel burst corrente
+	let burstDelayMs = 12;   // ritardo tra un carattere e l’altro (default 12)
+
 
 	// mappa select → linguaggio
 	const modeMap = { py:'py', rust:'rust', java:'java', asm:'asm', sql:'sql' };
@@ -1893,6 +1639,7 @@ syscall
 		rawText = source.value;
 		ptr = 0;
 		screen.innerHTML = '';
+		render();
 	});
 
 	chunkRange.addEventListener('input', () => {
@@ -1913,6 +1660,21 @@ syscall
 		if (!rewindAnimated && rewindRAF) { cancelAnimationFrame(rewindRAF); rewindRAF = null; }
 	});
 
+	const burstDelayRange = document.getElementById('burstDelayRange');
+	const burstDelayVal   = document.getElementById('burstDelayVal');
+
+	if (burstDelayRange && burstDelayVal){
+		// init UI dallo stato
+		burstDelayRange.value = String(burstDelayMs);
+		burstDelayVal.textContent = `${burstDelayMs}ms`;
+
+		burstDelayRange.addEventListener('input', () => {
+			burstDelayMs = parseInt(burstDelayRange.value, 10) || 12;
+			burstDelayVal.textContent = `${burstDelayMs}ms`;
+			// Applica subito: interrompi un burst in corso (se presente)
+			if (burstTimer){ clearInterval(burstTimer); burstTimer = null; }
+		});
+	}
 
 	clearBtn.addEventListener('click', () => {
 		userLoadedFile = false;
@@ -2303,6 +2065,8 @@ syscall
 				return;
 			}
 
+			if (burstTimer){ clearInterval(burstTimer); burstTimer = null; }
+
 			// reset testo/preview immediato
 			rawText = '';
 			ptr = 0;
@@ -2340,30 +2104,43 @@ syscall
 
 		ev.preventDefault();
 
-		// 2) se non c’è testo, carica un esempio
 		if (!rawText) loadExample(themeSelect.value);
 
-		// 3) calcola il chunk e avanza
+		// calcola il chunk
 		const before = ptr;
 		let chunk = parseInt((chunkRange && chunkRange.value) || '4', 10) || 4;
 		if (fastMode) chunk = Math.min(40, chunk * 4);
 		if (ev.code === 'Space') chunk *= 3;
 
-		ptr = Math.min(rawText.length, before + chunk);
-		const advanced = ptr > before;
 
-		if (ptr === rawText.length) {
-			maybeGenerateNextBlock();
+		// interrompi un eventuale burst ancora in corso
+		if (burstTimer){ clearInterval(burstTimer); burstTimer = null; }
+
+		const maxCanType = rawText.length - ptr;
+
+		// se chunk <= 1 (o siamo a fine buffer) → singolo carattere
+		if (chunk <= 1 || maxCanType <= 1){
+			if (maxCanType > 0){
+				ptr += 1;
+				render();
+				try{ playKeySound?.(); }catch{}
+			}
+			if (ptr === rawText.length) maybeGenerateNextBlock?.();
+		} else {
+			// micro-typing: n caratteri uno dopo l’altro
+			burstLeft = Math.min(chunk, maxCanType);
+			burstTimer = setInterval(() => {
+				if (burstLeft <= 0){
+					clearInterval(burstTimer); burstTimer = null;
+					if (ptr === rawText.length) maybeGenerateNextBlock?.();
+					return;
+				}
+				ptr += 1;
+				render();
+				try{ playKeySound?.(); }catch{}
+				burstLeft--;
+			}, burstDelayMs);
 		}
-
-		// 4) suona SOLO se abbiamo scritto davvero qualcosa
-		if (advanced && typeof playKeySound === 'function') {
-			playKeySound();
-		}
-
-		// 5) render
-		render();
-
 	});
 
 	// re-focus when fullscreen state changes
