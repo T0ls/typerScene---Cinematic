@@ -144,7 +144,7 @@
 
 		/* ---------- Selects (global) ---------- */
 		select,
-		#fontSelect,#themeSelect,#cursorSelect{
+		#fontSelect,#modeSelect,#cursorSelect{
 			appearance:none;-webkit-appearance:none;-moz-appearance:none;
 			width:100%;box-sizing:border-box;
 			background-color:rgba(255,255,255,0.03);
@@ -160,9 +160,9 @@
 			background-size:12px;
 		}
 		select:hover,
-		#fontSelect:hover,#themeSelect:hover,#cursorSelect:hover{ border-color:rgba(57,255,20,0.3) }
+		#fontSelect:hover,#modeSelect:hover,#cursorSelect:hover{ border-color:rgba(57,255,20,0.3) }
 		select:focus,
-		#fontSelect:focus,#themeSelect:focus,#cursorSelect:focus{ outline-offset:2px;border-color:rgba(57,255,20,0.6) }
+		#fontSelect:focus,#modeSelect:focus,#cursorSelect:focus{ outline-offset:2px;border-color:rgba(57,255,20,0.6) }
 		select:disabled{ opacity:.55;cursor:not-allowed }
 		select option{ background-color:#041018;color:var(--text) }
 		select.btn{ background-color:rgba(255,255,255,0.03) }
@@ -603,7 +603,7 @@
 					<div style="margin-top:10px">
 						<label class="chip">Language</label>
 						<div style="display:flex;gap:8px;margin-top:6px">
-							<select id="themeSelect" class="btn small">
+							<select id="modeSelect" class="btn small">
 								<option value="py">Python</option>
 								<option value="rust">Rust</option>
 								<option value="java">Java</option>
@@ -817,7 +817,7 @@
 	const chunkRange = document.getElementById('chunkRange');
 	const chunkVal = document.getElementById('chunkVal');
 	const generateChk = document.getElementById('generate');
-	const themeSelect = document.getElementById('themeSelect');
+	const modeSelect = document.getElementById('modeSelect');
 	const clearBtn = document.getElementById('clearBtn');
 	const restartBtn = document.getElementById('restartBtn');
 	const copyBtn = document.getElementById('copyBtn');
@@ -1347,7 +1347,7 @@ syscall
 	// === Reset UI ai default quando ricarichi la pagina  ===
 	function resetUIToDefaultsOnLoad(){
 		// dropdown / checkbox ai default
-		themeSelect && (themeSelect.selectedIndex = 0);
+		modeSelect && (modeSelect.selectedIndex = 0);
 		fontSelect  && (fontSelect.selectedIndex  = 0);
 		const cursorSelect = document.getElementById('cursorSelect');
 		cursorSelect && (cursorSelect.value = 'default');
@@ -1420,97 +1420,299 @@ syscall
 
 	// Ricalcola posizione cursore dopo cambi layout/font/fullscreen
 	function resyncCursorAfterLayout(){
-		// doppio rAF per aspettare il reflow
-		requestAnimationFrame(()=> {
-			(typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.();
-			setTimeout(()=> (typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.(), 30);
-		});
+	// doppio rAF per aspettare il reflow
+	requestAnimationFrame(()=> {
+		(typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.();
+		setTimeout(()=> (typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.(), 30);
+	});
+}
+
+
+// === Cursor Style ===
+const cursorSelect = document.getElementById('cursorSelect');
+
+function setCursorStyle(style){
+	if (!cursor) return;
+	const variants = ['cursor--bar','cursor--vintage','cursor--underline','cursor--double','cursor--box','cursor--box-empty'];
+	cursor.classList.remove(...variants);
+	if (style && style !== 'default') {
+		cursor.classList.add('cursor--' + style);
 	}
+	// se il tipo cambia (es. bar -> box), un render aiuta a riallineare
+	if (typeof render === 'function') render();
+}
 
+cursorSelect?.addEventListener('change', () => {
+	setCursorStyle(cursorSelect.value);
+});
 
-	// === Cursor Style ===
-	const cursorSelect = document.getElementById('cursorSelect');
+// inizializza il valore del select in base allo stato attuale (non forziamo un default)
+(function initCursorSelect(){
+	if (!cursorSelect || !cursor) return;
+	const existing = [...cursor.classList].find(c => c.startsWith('cursor--'));
+	cursorSelect.value = existing ? existing.replace('cursor--','') : 'default';
+})();
 
-	function setCursorStyle(style){
+const cursorBlinkChk = document.getElementById('cursorBlinkChk');
+
+// inizializza lo stato in base alla classe presente (di default: lampeggia)
+if (cursorBlinkChk) {
+	cursorBlinkChk.checked = !cursor.classList.contains('no-blink');
+	cursorBlinkChk.addEventListener('change', () => {
 		if (!cursor) return;
-		const variants = ['cursor--bar','cursor--vintage','cursor--underline','cursor--double','cursor--box','cursor--box-empty'];
-		cursor.classList.remove(...variants);
-		if (style && style !== 'default') {
-			cursor.classList.add('cursor--' + style);
-		}
-		// se il tipo cambia (es. bar -> box), un render aiuta a riallineare
+		cursor.classList.toggle('no-blink', !cursorBlinkChk.checked);
+		// piccolo re-render per riallineare eventuale stile
 		if (typeof render === 'function') render();
+	});
+}
+
+// Load default code
+function loadExample(mode){
+	rawText = examples[mode] || examples.py;
+	source.value = rawText;
+	ptr = 0;
+	render();
+}
+
+/* =========================
+Syntax Highlighter v2
+Supporto: python, rust, java, sql, asm (x86)
+Fallback: generic
+Usa le classi .kw .type .str .num .comment .fn .punct
+========================= */
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Costruisce liste -> pattern \b(?:A|B|C)\b
+function wordsRE(list){ return "\\b(?:" + list.join("|").replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&") + ")\\b"; }
+
+// Lexer per-lingua (pattern nominati). Ordine: string|comment -> specifici -> numeri/fn/kw/type -> punct
+function buildLexer(cfg){
+	// Patterns comuni
+	const strGeneric = `(?<str>"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*')`;
+	const mlCommentC = `(?<comment>/\\*[\\s\\S]*?\\*/)`;     // C/Java/Rust/SQL
+	const slCommentC = `(?<comment>//[^\\n]*)`;               // C/Java/Rust
+	const slCommentHash = `(?<comment>#[^\\n]*)`;             // Python
+	const slCommentSQL = `(?<comment>--[^\\n]*)`;             // SQL
+	const number = `(?<num>\\b0x[\\da-fA-F]+\\b|\\b\\d+(?:\\.\\d+)?\\b)`;
+	const punct = `(?<punct>[{}()[\\];.,:+\\-/*%<>=!?&|^~])`;
+	const fnCall = `(?<fn>[A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()`; // solo l’identificatore
+
+	// Merge specifici per lingua
+	if (cfg.lang === 'python'){
+		const kw = wordsRE([
+			'def','class','return','if','elif','else','for','while','import','from','as','with','try','except','finally',
+			'raise','pass','lambda','yield','del','global','nonlocal','assert','async','await','in','is','and','or','not'
+		]);
+		const type = wordsRE(['int','float','bool','str','list','tuple','dict','set','None','True','False','bytes','range','object']);
+		const triple = `(?<str>'''[\\s\\S]*?'''|"""[\\s\\S]*?""")`;
+		const re = new RegExp(
+			[
+				triple, strGeneric,
+				slCommentHash,
+				number,
+				`(?<kw>${kw})`,
+				`(?<type>${type})`,
+				fnCall,
+				punct
+			].join('|'),
+			'gmi'
+		);
+		return re;
 	}
 
-	cursorSelect?.addEventListener('change', () => {
-		setCursorStyle(cursorSelect.value);
+	if (cfg.lang === 'rust'){
+		const kw = wordsRE([
+			'fn','let','mut','pub','crate','mod','use','impl','trait','struct','enum','match','if','else','loop','while','for',
+			'return','move','ref','self','super','dyn','unsafe','async','await','where','const','static'
+		]);
+		const type = wordsRE([
+			'u8','u16','u32','u64','u128','i8','i16','i32','i64','i128','usize','isize','bool','char','str','String','Vec',
+			'Option','Result','Box','Rc','Arc','Self'
+		]);
+		const rustRaw = `(?<str>r(#{0,5})"(?:[\\s\\S]*?)"\\2)`; // r"..." r#"... "# ecc. fino a 5 #
+		const lifetime = `(?<type>'[A-Za-z_][A-Za-z0-9_]*)`;
+		const macroId = `(?<kw>[a-z_][a-z0-9_]*)(?=!)`; // foo! macro
+		const re = new RegExp(
+			[
+				rustRaw, strGeneric,
+				mlCommentC, slCommentC,
+				lifetime,
+				number,
+				macroId,
+				`(?<kw>${kw})`,
+				`(?<type>${type})`,
+				fnCall,
+				punct
+			].join('|'),
+			'gmi'
+		);
+		return re;
+	}
+
+	if (cfg.lang === 'java'){
+		const kw = wordsRE([
+			'public','private','protected','class','interface','enum','extends','implements','package','import','new','return',
+			'if','else','for','while','do','switch','case','break','continue','try','catch','finally','throw','throws',
+			'this','super','static','final','abstract','volatile','transient','synchronized','instanceof'
+		]);
+		const type = wordsRE([
+			'void','int','long','double','float','boolean','char','byte','short','String','List','Map','Set','ArrayList','HashMap'
+		]);
+		const re = new RegExp(
+			[
+				strGeneric,
+				mlCommentC, slCommentC,
+				number,
+				`(?<kw>${kw})`,
+				`(?<type>${type})`,
+				fnCall,
+				punct
+			].join('|'),
+			'gmi'
+		);
+		return re;
+	}
+
+	if (cfg.lang === 'sql'){
+		const kw = wordsRE([
+			'SELECT','FROM','WHERE','INSERT','INTO','VALUES','UPDATE','SET','DELETE','CREATE','TABLE','PRIMARY','KEY','FOREIGN',
+			'NOT','NULL','JOIN','LEFT','RIGHT','INNER','OUTER','ON','AND','OR','ORDER','BY','GROUP','HAVING','LIMIT','OFFSET',
+			'AS','DISTINCT','UNION','ALL','ALTER','ADD','DROP','INDEX'
+		]);
+		const type = wordsRE([
+			'INT','INTEGER','SERIAL','BIGINT','SMALLINT','DECIMAL','NUMERIC','REAL','DOUBLE','PRECISION','BOOLEAN','TEXT','VARCHAR',
+			'CHAR','DATE','TIMESTAMP','TIME','JSON','UUID'
+		]);
+		const strSQL = `(?<str>'(?:''|[^'])*')`; // '' = escape
+		const re = new RegExp(
+			[
+				strSQL, strGeneric,
+				mlCommentC, slCommentSQL,
+				number,
+				`(?<kw>${kw})`,
+				`(?<type>${type})`,
+				fnCall,
+				punct
+			].join('|'),
+			'gmi'
+		);
+		return re;
+	}
+
+	if (cfg.lang === 'asm'){ // x86
+		const kw = wordsRE([
+			'mov','lea','push','pop','call','ret','jmp','je','jne','jg','jl','jge','jle','cmp','test',
+			'add','sub','mul','imul','div','idiv','and','or','xor','shl','shr','inc','dec','nop',
+			'int','sysenter','syscall'
+		]);
+		const regs = `(?<type>\\b(?:[re]?(?:ax|bx|cx|dx|si|di|sp|bp)|r1[0-5]|r[8-9]|[xy]mm\\d+)\\b)`;
+		const label = `(?<fn>^[A-Za-z_][A-Za-z0-9_]*)(?=:)`;
+		const slCommentAsm = `(?<comment>;[^\\n]*)`;
+		const re = new RegExp(
+			[
+				strGeneric,
+				slCommentAsm,
+				regs,
+				number,
+				label,
+				`(?<kw>${kw})`,
+				fnCall, // per eventuali macro style
+				punct
+			].join('|'),
+			'gmi'
+		);
+		return re;
+	}
+
+	// Fallback generico
+	const re = new RegExp([strGeneric, mlCommentC, slCommentC, slCommentHash, slCommentSQL, number, fnCall, punct].join('|'), 'gmi');
+	return re;
+}
+
+function highlight(text, mode){
+	if (!text) return '';
+	const lang = ({py:'python', rust:'rust', java:'java', sql:'sql', asm:'asm'})[mode] || 'generic';
+	const re = buildLexer({lang});
+
+	let out = '';
+	let lastIndex = 0;
+
+	// Itera i match e costruisce l’HTML mantenendo l’escape
+	text.replace(re, (m, _1, _2, _3, _4, _5, _6, _7, _8, _9, offset, _str, groups) => {
+		// testo "plain" fino al match
+		out += esc(text.slice(lastIndex, offset));
+
+		// quale gruppo ha matchato?
+		let cls = null;
+		if (groups){
+			if (groups.comment) cls = 'comment';
+				else if (groups.str) cls = 'str';
+					else if (groups.type) cls = 'type';
+						else if (groups.kw) cls = 'kw';
+							else if (groups.fn) cls = 'fn';
+								else if (groups.num) cls = 'num';
+									else if (groups.punct) cls = 'punct';
+		}
+		if (cls){
+			out += `<span class="${cls}">` + esc(m) + `</span>`;
+		} else {
+			out += esc(m);
+		}
+
+		lastIndex = offset + m.length;
+		return m;
 	});
 
-	// inizializza il valore del select in base allo stato attuale (non forziamo un default)
-	(function initCursorSelect(){
-		if (!cursorSelect || !cursor) return;
-		const existing = [...cursor.classList].find(c => c.startsWith('cursor--'));
-		cursorSelect.value = existing ? existing.replace('cursor--','') : 'default';
-	})();
+	// resto finale
+	out += esc(text.slice(lastIndex));
+	return out;
+}
 
-	const cursorBlinkChk = document.getElementById('cursorBlinkChk');
+// === Render incrementale + rAF ===
+let lastRenderedPtr = 0;   // quanto è già stato “dipinto”
+let renderRAF = 0;
 
-	// inizializza lo stato in base alla classe presente (di default: lampeggia)
-	if (cursorBlinkChk) {
-		cursorBlinkChk.checked = !cursor.classList.contains('no-blink');
-		cursorBlinkChk.addEventListener('change', () => {
-			if (!cursor) return;
-			cursor.classList.toggle('no-blink', !cursorBlinkChk.checked);
-			// piccolo re-render per riallineare eventuale stile
-			if (typeof render === 'function') render();
-		});
+function render(force = false){
+	if (!force && renderRAF) return;
+	if (force) { 
+		flushRender(); 
+		return; 
 	}
+	renderRAF = requestAnimationFrame(flushRender);
+}
 
-	// Load default code
-	function loadExample(mode){
-		rawText = examples[mode] || examples.py;
-		source.value = rawText;
-		ptr = 0;
-		render();
-	}
+function getLang(){
+	// aggiorna l’ID qui sotto con quello reale del tuo select della lingua
+	const v = (document.getElementById('modeSelect')?.value || '').toLowerCase();
+	if (v.includes('python')) return 'py';
+	if (v.includes('rust'))   return 'rust';
+	if (v.includes('java'))   return 'java';
+	if (v.includes('sql'))    return 'sql';
+	if (v.includes('asm') || v.includes('x86')) return 'asm';
+	return 'generic';
+}
 
-	function highlight(text /*, mode */){
-		// niente markup, solo escape per sicurezza
-		return text
-			.replace(/&/g,'&amp;')
-			.replace(/</g,'&lt;')
-			.replace(/>/g,'&gt;');
-	}
+function flushRender(){
+	renderRAF = 0;
+	const lang = getLang();
 
-
-	// === Render incrementale + rAF ===
-	let lastRenderedPtr = 0;   // quanto è già stato “dipinto”
-	let renderRAF = 0;
-
-	function render(){
-		if (renderRAF) return;
-		renderRAF = requestAnimationFrame(flushRender);
-	}
-
-	function flushRender(){
-		renderRAF = 0;
-
-		// Se abbiamo riavvolto/cancellato, ricostruisci da zero fino a ptr
-		if (ptr < lastRenderedPtr || lastRenderedPtr === 0 && screen.innerHTML === '') {
-			screen.innerHTML = highlight(rawText.slice(0, ptr));
+	// Se abbiamo riavvolto/cancellato, ricostruisci da zero fino a ptr
+	if (ptr < lastRenderedPtr || (lastRenderedPtr === 0 && screen.innerHTML === '')) {
+			screen.innerHTML = highlight(rawText.slice(0, ptr), lang);
 			lastRenderedPtr = ptr;
 		} else {
 			// Appendi solo il delta
 			const delta = rawText.slice(lastRenderedPtr, ptr);
 			if (delta) {
-				const html = highlight(delta, themeSelect.value);
+				const html = highlight(delta, lang);
 				const frag = document.createRange().createContextualFragment(html);
 				screen.appendChild(frag);
 				lastRenderedPtr = ptr;
 			}
 		}
 
-		// Assicura UN solo anchor alla fine
+		// Anchor/cursor (come già fai)
 		let anchor = document.getElementById('cursorAnchor');
 		if (anchor) anchor.remove();
 		anchor = document.createElement('span');
@@ -1520,11 +1722,9 @@ syscall
 		anchor.style.height = '0';
 		screen.appendChild(anchor);
 
-		// Scroll in basso (una volta per frame)
 		const wrap = screen.parentElement;
 		wrap.scrollTop = wrap.scrollHeight;
 
-		// Posiziona il cursore (una sola misura+scrittura per frame)
 		const wrapRect = wrap.getBoundingClientRect();
 		const aRect = anchor.getBoundingClientRect();
 		const x = (aRect.left - wrapRect.left) + wrap.scrollLeft;
@@ -1532,10 +1732,14 @@ syscall
 		cursor.style.left = Math.max(0, x) + 'px';
 		cursor.style.top  = Math.max(0, y) + 'px';
 
-		// Aggiorna --lh per le varianti “underline/vintage/box”
 		const lh = parseFloat(getComputedStyle(screen).lineHeight) || 20;
 		document.querySelector('.left')?.style.setProperty('--lh', lh + 'px');
 	}
+
+	modeSelect?.addEventListener('change', () => {
+		lastRenderedPtr = 0;       // forzi ricostruzione completa
+		render(true);              // flush immediato
+	});
 
 	generateChk?.addEventListener('change', () => {
 		if (generateChk.checked && userLoadedFile) {
@@ -1571,10 +1775,9 @@ syscall
 		chunkVal.textContent = chunkRange.value;
 	});
 
-	themeSelect.addEventListener('change', () => {
-		currentMode = modeMap[themeSelect.value];
-		console.log(currentMode)
-		const val = themeSelect.value;
+	modeSelect.addEventListener('change', () => {
+		currentMode = modeMap[modeSelect.value];
+		const val = modeSelect.value;
 		if (!generateChk.checked) loadExample(val);
 	});
 
@@ -1893,7 +2096,7 @@ syscall
 
 			preview.focus();
 			// if nothing has been shown yet, at least show the initial prompt
-			if (ptr === 0 && !rawText) loadExample(themeSelect.value);
+			if (ptr === 0 && !rawText) loadExample(modeSelect.value);
 				else render();
 		} else {
 			const div = document.getElementById("bigBoy")
@@ -2029,7 +2232,7 @@ syscall
 
 		ev.preventDefault();
 
-		if (!rawText) loadExample(themeSelect.value);
+		if (!rawText) loadExample(modeSelect.value);
 
 		// calcola il chunk
 		const before = ptr;
@@ -2061,7 +2264,7 @@ syscall
 					return;
 				}
 				ptr += 1;
-				render();
+				render(true);
 				try{ playKeySound?.(); }catch{}
 				burstLeft--;
 			}, burstDelayMs);
