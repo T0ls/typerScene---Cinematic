@@ -170,16 +170,22 @@
 		/* ---------- Panels: specific ---------- */
 		#audioPanel{ margin-top:10px }
 		#audioPanel button{ font-family:var(--mono) }
-		#audioPanel input[type="range"]{ accent-color:#39ff14; cursor:pointer }
+		input[type="range"]{ accent-color:#39ff14; cursor:pointer }
 
 		#sourcePanel{ margin-top:12px; flex-shrink:0 }
 		#sourcePanel textarea{
-			resize:vertical; min-height:120px; max-height:450px;
-			background:#020b0d; color:var(--muted);
-			flex:1 1 auto; min-height:0; width:100%;
-			border:0; border-radius:8px; padding:8px;
+			resize:vertical;
+			min-height:120px;
+			max-height:450px;
+			background:#020b0d;
+			color:var(--muted);
+			flex:1 1 auto;
+			min-height:0;
+			width:100%;
+			border:0;
+			border-radius:8px;
+			padding:8px;
 		}
-		#sourcePanel input[type="range"]{ accent-color:#39ff14; cursor:pointer }
 
 		#fontSelect{
 			background:rgba(255,255,255,0.03);
@@ -193,13 +199,13 @@
 		#fontPanel .font-stack{ display:flex; flex-direction:column; gap:12px; margin-top:8px; min-height:0; overflow:auto; overflow-x:hidden }
 		#fontPanel .font-row{ display:flex; flex-direction:column; gap:6px }
 		#fontPanel .field-label{ font-size:13px; color:var(--muted); font-family:var(--mono) }
-		#fontPanel .field-value{ font-size:12px; color:var(--muted); align-self:flex-end }
 		#fontPanel .w-full{ width:100% }
 		#fontPanel select{ background:rgba(255,255,255,0.03); color:var(--text); border:1px solid rgba(255,255,255,0.05); border-radius:8px; font-family:var(--mono) }
 		#fontPanel input[type="range"]{ accent-color:#39ff14; cursor:pointer }
 
 		#chunkRange{ accent-color:#39ff14 }
 
+		.field-value{ font-size:12px; color:var(--muted); align-self:flex-end }
 		/* ---------- Subpanels grid (editor area) ---------- */
 		#sourcePanel{ grid-column:1; grid-row:1 / span 2 }
 		.subpanels .panel{ display:flex; flex-direction:column }
@@ -502,7 +508,7 @@
 					<div class="panel" id="sourcePanel">
 						<label class="chip">Source Text</label>
 						<label style="font-size:13px;color:var(--muted)">Edit text:</label>
-						<textarea id="source" style="width:100%;margin-top:8px;background:#021218;color:var(--muted);border-radius:8px;padding:8px;border:0;"></textarea>
+						<textarea id="source" style="width:97%;margin-top:8px;background:#021218;color:var(--muted);border-radius:8px;padding:8px;border:0;"></textarea>
 					</div>
 
 					<!-- Colonna destra accanto a Source text -->
@@ -525,14 +531,14 @@
 									<option value="'Space Mono', monospace">Space Mono</option>
 									<option value="'VT323', monospace">VT323</option>
 								</select>
-								<div id="fontSelectWrap"><!-- select esistente qui --></div>
+								<div id="fontSelectWrap"></div>
 							</div>
 
 							<div class="control">
 								<div class="hint">Font size</div>
 								<div class="control-row">
 									<input id="fontSizeRange" type="range" min="12" max="28" step="1">
-									<span id="fontSizeVal">18px</span>
+									<span id="fontSizeVal" class="field-value">18px</span>
 								</div>
 							</div>
 						</div>
@@ -545,16 +551,15 @@
 								<div class="hint">Chunk per key</div>
 								<div class="control-row">
 									<input id="chunkRange" type="range" min="1" max="12" step="1">
-									<span id="chunkVal">4</span>
+									<span id="chunkVal" class="field-value">4</span>
 								</div>
 							</div>
 
-							<!-- Se usi il burst delay, lascialo qui -->
 							<div class="control" id="burstBlock">
 								<div class="hint">Burst delay</div>
 								<div class="control-row">
 									<input id="burstDelayRange" type="range" min="2" max="60" step="1" value="12">
-									<span id="burstDelayVal">12ms</span>
+									<span id="burstDelayVal" class="field-value">12ms</span>
 								</div>
 							</div>
 						</div>
@@ -567,7 +572,7 @@
 								<div class="hint">Rewind speed</div>
 								<div class="control-row">
 									<input id="rewindSpeedRange" type="range" min="1" max="20" step="1">
-									<span id="rewindSpeedVal">x5</span>
+									<span id="rewindSpeedVal" class="field-value">x5</span>
 								</div>
 							</div>
 
