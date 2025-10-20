@@ -551,7 +551,7 @@
 								<div class="hint">Chunk per key</div>
 								<div class="control-row">
 									<input id="chunkRange" type="range" min="1" max="12" step="1">
-									<span id="chunkVal" class="field-value">4</span>
+									<span id="chunkVal" class="field-value">1</span>
 								</div>
 							</div>
 
@@ -1364,7 +1364,7 @@ syscall
 		// range: ripristina al valore di default e notifica i listener "input"
 		const fireInput = el => el && el.dispatchEvent(new Event('input', { bubbles:true }));
 		if (chunkRange){
-			chunkRange.value = chunkRange.getAttribute('value') || '4';
+			chunkRange.value = chunkRange.getAttribute('value') || '1';
 			fireInput(chunkRange);
 		}
 		const rewindSpeedRange = document.getElementById('rewindSpeedRange');
@@ -1474,92 +1474,12 @@ syscall
 		render();
 	}
 
-	function escapeHtml(s){
-		return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-	}
-
-	function highlight(text, mode){
-		const esc = escapeHtml(text);
-
-		// util per mascherare segmenti (stringhe/commenti) e ripristinarli alla fine
-		function makeMasker(){
-			const slots = [];
-			const enc = (n)=>{ // indice -> lettere base-26 (niente cifre)
-				let s=''; do{ s = String.fromCharCode(97+(n%26)) + s; n = Math.floor(n/26)-1; }while(n>=0);
-				return s;
-			};
-			const dec = (s)=>{ // lettere -> indice
-				let n=0; for (let i=0;i<s.length;i++){ n = n*26 + (s.charCodeAt(i)-97+1); } return n-1;
-			};
-			const MASK_OPEN = '\uE000', MASK_CLOSE = '\uE001';
-			const mask = (input, regex, cls) => input.replace(regex, m=>{
-				const id = slots.push({cls, html:m}) - 1;
-				return MASK_OPEN + enc(id) + MASK_CLOSE;
-			});
-			const unmask = (input) => input.replace(/\uE000([a-z]+)\uE001/g, (_,code)=>{
-				const id = dec(code);
-				const {cls, html} = slots[id];
-				return `<span class="${cls}">${html}</span>`;
-			});
-			return { mask, unmask };
-		}
-
-		// ---------- JavaScript / "code" ----------
-		if (!mode || mode === 'code'){
-			const m = makeMasker();
-			let s = esc;
-
-			// 1) proteggi commenti e stringhe
-			s = m.mask(s, /\/\*[\s\S]*?\*\//g, 'comment');                            // /* ... */
-			s = m.mask(s, /\/\/[^\n]*/g, 'comment');                                  // // ...
-			s = m.mask(s, /`(?:\\[\s\S]|[^\\`])*`/g, 'str');                          // template
-			s = m.mask(s, /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, 'str');             // "..." | '...'
-
-			// 2) evidenzia sul testo “pulito” (fuori dai segnaposti)
-			const kw = /\b(const|let|var|function|class|return|if|else|for|while|import|from|new|this|constructor|await|async|switch|case|break|continue|try|catch|finally|throw|export|default|extends|super|typeof|instanceof|in|of|yield|delete|void|do)\b/g;
-			s = s.replace(kw, '<span class="kw">$1</span>');
-			s = s.replace(/\b(true|false|null|undefined)\b/g, '<span class="type">$1</span>');
-			s = s.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="num">$1</span>');
-			s = s.replace(/([{}()[\];,.])/g, '<span class="punct">$1</span>');
-
-			// 3) ripristina stringhe/commenti
-			return m.unmask(s);
-		}
-
-		// ---------- Python ----------
-		if (mode === 'py'){
-			const m = makeMasker();
-			let s = esc;
-
-			s = m.mask(s, /#.*$/gm, 'comment');
-			s = m.mask(s, /'''[\s\S]*?'''|"""[\s\S]*?"""/g, 'str');
-			s = m.mask(s, /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, 'str');
-
-			s = s.replace(/\b(def|class|return|if|elif|else|for|while|import|from|as|with|try|except|finally|pass|in|is|and|or|not|lambda|yield|global|nonlocal|assert|raise|del)\b/g,'<span class="kw">$1</span>');
-			s = s.replace(/\b(\d+(\.\d+)?)\b/g,'<span class="num">$1</span>');
-			s = s.replace(/([{}()[\];,.:])/g,'<span class="punct">$1</span>');
-
-			return m.unmask(s);
-		}
-
-		// ---------- SQL ----------
-		if (mode === 'sql'){
-			const m = makeMasker();
-			let s = esc;
-
-			s = m.mask(s, /--[^\n]*/g, 'comment');               // -- ...
-			s = m.mask(s, /\/\*[\s\S]*?\*\//g, 'comment');       // /* ... */
-			s = m.mask(s, /'(?:''|\\'|[^'])*'/g, 'str');         // '...'
-
-			s = s.replace(/\b(SELECT|FROM|WHERE|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|PRIMARY|KEY|JOIN|LEFT|RIGHT|FULL|OUTER|INNER|ON|AND|OR|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|AS|DISTINCT)\b/ig,'<span class="kw">$1</span>');
-			s = s.replace(/\b(\d+(\.\d+)?)\b/g,'<span class="num">$1</span>');
-			s = s.replace(/([(),;.*])/g,'<span class="punct">$1</span>');
-
-			return m.unmask(s);
-		}
-
-		// fallback
-		return esc;
+	function highlight(text /*, mode */){
+		// niente markup, solo escape per sicurezza
+		return text
+			.replace(/&/g,'&amp;')
+			.replace(/</g,'&lt;')
+			.replace(/>/g,'&gt;');
 	}
 
 
@@ -1577,7 +1497,7 @@ syscall
 
 		// Se abbiamo riavvolto/cancellato, ricostruisci da zero fino a ptr
 		if (ptr < lastRenderedPtr || lastRenderedPtr === 0 && screen.innerHTML === '') {
-			screen.innerHTML = highlight(rawText.slice(0, ptr), themeSelect.value);
+			screen.innerHTML = highlight(rawText.slice(0, ptr));
 			lastRenderedPtr = ptr;
 		} else {
 			// Appendi solo il delta
