@@ -558,7 +558,7 @@
 							<div class="control" id="burstBlock">
 								<div class="hint">Burst delay</div>
 								<div class="control-row">
-									<input id="burstDelayRange" type="range" min="2" max="60" step="1" value="12">
+									<input id="burstDelayRange" type="range" min="1" max="60" step="1" value="12">
 									<span id="burstDelayVal" class="field-value">12ms</span>
 								</div>
 							</div>
@@ -1362,6 +1362,10 @@ syscall
 
 		generateChk && (generateChk.checked = false);
 
+		// scanlines & vignette
+		document.getElementById('bgScanlinesChk').checked = false;
+		document.getElementById('bgVignetteChk').checked = false;
+
 		// mono color off
 		const monoColorChk = document.getElementById('monoColor');
 		const preview = document.querySelector('.preview');
@@ -2104,7 +2108,6 @@ syscall
 	// toggle clean mode
 	function toggleCleanMode(on){
 		// While auto-typing is on, ignore manual typing keys to avoid conflicts
-		if (autoTyping) return;
 		if (!on) toggleStats(false);
 		if (on){
 			const div = document.getElementById("bigBoy")
@@ -2160,6 +2163,13 @@ syscall
 		// F6 = mute / unmute
 		if (ev.key === 'F4'){
 			soundMuted = !soundMuted;
+			if (audioCtx) {
+				__kb_ensureAudio();
+				__kb_masterGain.gain.setTargetAtTime(
+					soundMuted ? 0.0001 : masterVolume * 0.9,
+					audioCtx.currentTime, 0.01
+				);
+			}
 			const btn = document.getElementById('toggleSoundBtn');
 			if (btn) {
 				btn.textContent = soundMuted ? '🔇 Muted' : '🔊 Sound On';
@@ -2212,7 +2222,7 @@ syscall
 		}
 		if (ev.key === 'F12'){ return; }
 
-		// Backspace / Delete = Remove 1 char
+		// Backspace / Delete = Removes a character
 		if (ev.key === 'Backspace' || ev.key === 'Delete') {
 			ev.preventDefault();
 
@@ -2223,7 +2233,7 @@ syscall
 			}
 
 			if (ptr > 0) {
-				ptr -= 1;                 // “cancella” un carattere
+				ptr -= 1;
 				// forza il render completo perché stiamo andando indietro
 				if (typeof render === 'function') render(true);
 				try { playKeySound?.(); } catch {}
@@ -2386,44 +2396,112 @@ let masterVolume = 0.5;
 volumeRange.addEventListener('input', () => {
 	masterVolume = volumeRange.value / 100;
 	volumeVal.textContent = `${volumeRange.value}%`;
+	if (audioCtx) {
+		__kb_ensureAudio();
+		__kb_masterGain.gain.setTargetAtTime(
+			soundMuted ? 0.0001 : masterVolume * 0.9,
+			audioCtx.currentTime, 0.01
+		);
+	}
 });
 
-// crea click sonoro di default via Web Audio
-function playDefaultClick() {
-	if (soundMuted) return;
-	if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-	if (audioCtx.state === 'suspended') audioCtx.resume();
+// ===== Master chain (compressor + master gain) =====
+let __kb_masterGain = null;
+let __kb_compressor = null;
+let __kb_noiseBuf = null;
 
-	const ctx = audioCtx;
-	const osc = ctx.createOscillator();
-	const gain = ctx.createGain();
+function __kb_ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!__kb_masterGain) {
+    __kb_masterGain = audioCtx.createGain();
+    __kb_masterGain.gain.value = soundMuted ? 0.0001 : (masterVolume * 0.9);
 
-	osc.type = 'square';
-	osc.frequency.value = 1200 + Math.random() * 400;
+    __kb_compressor = audioCtx.createDynamicsCompressor();
+    __kb_compressor.threshold.value = -12;
+    __kb_compressor.knee.value = 20;
+    __kb_compressor.ratio.value = 6;
+    __kb_compressor.attack.value = 0.002;
+    __kb_compressor.release.value = 0.03;
 
-	const baseGain = 0.2 * masterVolume;
-	gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-	gain.gain.exponentialRampToValueAtTime(baseGain, ctx.currentTime + 0.005);
-	gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
-
-	osc.connect(gain).connect(ctx.destination);
-	osc.start();
-	osc.stop(ctx.currentTime + 0.05);
+    __kb_compressor.connect(__kb_masterGain).connect(audioCtx.destination);
+  }
 }
 
-// riproduci suono personalizzato (file caricato)
+function __kb_makeNoiseBuffer() {
+  // Short, high-damped burst to emulate switch “click”
+  const sr = audioCtx.sampleRate;
+  const len = Math.floor(sr * 0.02);
+  const buf = audioCtx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) {
+    const t = i / len;
+    // slightly colored noise + strong exponential damping towards the end
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 6);
+  }
+  return buf;
+}
+
+// Default keyboard click = noise burst + short blip + soft thock
+function playDefaultClick() {
+  if (soundMuted) return;
+  __kb_ensureAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const now = audioCtx.currentTime;
+
+  // 1) Noise burst (the "click")
+  if (!__kb_noiseBuf) __kb_noiseBuf = __kb_makeNoiseBuffer();
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = __kb_noiseBuf;
+  const nGain = audioCtx.createGain();
+  nGain.gain.setValueAtTime(0, now);
+  nGain.gain.linearRampToValueAtTime(0.18 * masterVolume, now + 0.002);
+  nGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+  noise.connect(nGain).connect(__kb_compressor);
+  noise.start(now);
+
+  // 2) Short square blip (very quick, decaying pitch)
+  const osc = audioCtx.createOscillator();
+  osc.type = 'square';
+  const f0 = 2500 + Math.random() * 500;
+  osc.frequency.setValueAtTime(f0, now);
+  osc.frequency.linearRampToValueAtTime(1300, now + 0.012);
+  const oGain = audioCtx.createGain();
+  oGain.gain.setValueAtTime(0, now);
+  oGain.gain.linearRampToValueAtTime(0.10 * masterVolume, now + 0.0015);
+  oGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+  osc.connect(oGain).connect(__kb_compressor);
+  osc.start(now);
+  osc.stop(now + 0.035);
+
+  // 3) Low "thock" tail (soft, very short)
+  const th = audioCtx.createOscillator();
+  th.type = 'sine';
+  th.frequency.setValueAtTime(180 + Math.random() * 20, now);
+  const tGain = audioCtx.createGain();
+  tGain.gain.setValueAtTime(0, now);
+  tGain.gain.linearRampToValueAtTime(0.08 * masterVolume, now + 0.004);
+  tGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+  th.connect(tGain).connect(__kb_compressor);
+  th.start(now);
+  th.stop(now + 0.07);
+}
+
+// Custom file playback goes through the same master chain
 async function playCustomSound() {
-	if (soundMuted || !customSoundBuffer) return;
-	if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-	if (audioCtx.state === 'suspended') await audioCtx.resume();
+  if (soundMuted || !customSoundBuffer) return;
+  __kb_ensureAudio();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-	const source = audioCtx.createBufferSource();
-	const gainNode = audioCtx.createGain();
-	gainNode.gain.value = masterVolume;
+  const source = audioCtx.createBufferSource();
+  source.buffer = customSoundBuffer;
 
-	source.buffer = customSoundBuffer;
-	source.connect(gainNode).connect(audioCtx.destination);
-	source.start(0);
+  // Optional per-file gain; master volume is handled by the master gain
+  const g = audioCtx.createGain();
+  g.gain.value = 1.0;
+
+  source.connect(g).connect(__kb_compressor);
+  source.start(0);
 }
 
 // riproduci il suono corretto
@@ -2449,6 +2527,13 @@ soundFileInput.addEventListener('change', async e => {
 const toggleSoundBtn = document.getElementById('toggleSoundBtn');
 toggleSoundBtn.addEventListener('click', () => {
 	soundMuted = !soundMuted;
+	if (audioCtx) {
+		__kb_ensureAudio();
+		__kb_masterGain.gain.setTargetAtTime(
+			soundMuted ? 0.0001 : masterVolume * 0.9,
+			audioCtx.currentTime, 0.01
+		);
+	}
 	toggleSoundBtn.textContent = soundMuted ? '🔇 Muted' : '🔊 Sound On';
 	toggleSoundBtn.style.opacity = soundMuted ? 0.6 : 1;
 });
