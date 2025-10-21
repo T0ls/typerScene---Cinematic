@@ -853,495 +853,494 @@
 	// mappa select → linguaggio
 	const modeMap = { py:'py', rust:'rust', java:'java', asm:'asm', sql:'sql' };
 
-
 	const examples = {
 		py: `import asyncio
-import dataclasses
-import hashlib
-import json
-import logging
-import re
-import sys
-import time
-from collections import deque
-from dataclasses import dataclass, field
-from typing import Deque, Dict, List, Set, Tuple
+			import dataclasses
+			import hashlib
+			import json
+			import logging
+			import re
+			import sys
+			import time
+			from collections import deque
+			from dataclasses import dataclass, field
+			from typing import Deque, Dict, List, Set, Tuple
 
-try:
-import aiohttp
-except ImportError:
-aiohttp = None  # placeholder if the lib is missing
+			try:
+			import aiohttp
+			except ImportError:
+			aiohttp = None  # placeholder if the lib is missing
 
-LOG = logging.getLogger("matrixcrawler")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+			LOG = logging.getLogger("matrixcrawler")
+			logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 
-HREF_RE = re.compile(r'href=["\'](.*?)["\']', re.I)
+			HREF_RE = re.compile(r'href=["\'](.*?)["\']', re.I)
 
-@dataclass
-class Page:
-url: str
-code: int
-title: str
-links: List[str] = field(default_factory=list)
-fingerprint: str = ""
+			@dataclass
+			class Page:
+			url: str
+			code: int
+			title: str
+			links: List[str] = field(default_factory=list)
+			fingerprint: str = ""
 
-@dataclass
-class LRU:
-maxsize: int
-q: Deque[str] = field(default_factory=deque)
-s: Set[str] = field(default_factory=set)
+			@dataclass
+			class LRU:
+			maxsize: int
+			q: Deque[str] = field(default_factory=deque)
+			s: Set[str] = field(default_factory=set)
 
-def add(self, item: str) -> None:
-if item in self.s:
-return
-self.q.append(item)
-self.s.add(item)
-if len(self.q) > self.maxsize:
-old = self.q.popleft()
-self.s.remove(old)
+			def add(self, item: str) -> None:
+			if item in self.s:
+			return
+			self.q.append(item)
+			self.s.add(item)
+			if len(self.q) > self.maxsize:
+			old = self.q.popleft()
+			self.s.remove(old)
 
-def __contains__(self, item: str) -> bool:
-return item in self.s
+			def __contains__(self, item: str) -> bool:
+			return item in self.s
 
-class RateLimiter:
-def __init__(self, rate_per_sec: float = 4.0):
-self.period = 1.0 / max(0.001, rate_per_sec)
-self._last = 0.0
+			class RateLimiter:
+			def __init__(self, rate_per_sec: float = 4.0):
+			self.period = 1.0 / max(0.001, rate_per_sec)
+			self._last = 0.0
 
-async def wait(self):
-now = time.perf_counter()
-dt = now - self._last
-if dt < self.period:
-await asyncio.sleep(self.period - dt)
-self._last = time.perf_counter()
+			async def wait(self):
+			now = time.perf_counter()
+			dt = now - self._last
+			if dt < self.period:
+			await asyncio.sleep(self.period - dt)
+			self._last = time.perf_counter()
 
-class Crawler:
-def __init__(self, seed: str, limit: int = 50, rate: float = 4.0):
-self.seed = seed
-self.limit = limit
-self.rate = RateLimiter(rate)
-self.visited = LRU(512)
-self.q: Deque[str] = deque([seed])
-self.done = 0
-self.index: Dict[str, Page] = {}
+			class Crawler:
+			def __init__(self, seed: str, limit: int = 50, rate: float = 4.0):
+			self.seed = seed
+			self.limit = limit
+			self.rate = RateLimiter(rate)
+			self.visited = LRU(512)
+			self.q: Deque[str] = deque([seed])
+			self.done = 0
+			self.index: Dict[str, Page] = {}
 
-async def fetch(self, session, url: str) -> Tuple[int, str]:
-await self.rate.wait()
-try:
-async with session.get(url, timeout=10) as resp:
-txt = await resp.text(errors="ignore")
-return resp.status, txt
-except Exception as e:
-LOG.warning("fetch error %s: %s", url, e)
-return 0, ""
+			async def fetch(self, session, url: str) -> Tuple[int, str]:
+			await self.rate.wait()
+			try:
+			async with session.get(url, timeout=10) as resp:
+			txt = await resp.text(errors="ignore")
+			return resp.status, txt
+			except Exception as e:
+			LOG.warning("fetch error %s: %s", url, e)
+			return 0, ""
 
-def parse(self, url: str, text: str) -> Page:
-title_match = re.search(r"<title>(.*?)</title>", text, re.I | re.S)
-title = (title_match.group(1).strip() if title_match else url)[:120]
-links = re.findall(r'href=["\'](.*?)["\']', text, flags=re.I)
-links = [l for l in links if l.startswith("http")]
-fp = hashlib.sha1(text[:5000].encode("utf-8", "ignore")).hexdigest()
-return Page(url=url, code=200 if text else 0, title=title, links=links[:50], fingerprint=fp)
+			def parse(self, url: str, text: str) -> Page:
+			title_match = re.search(r"<title>(.*?)</title>", text, re.I | re.S)
+			title = (title_match.group(1).strip() if title_match else url)[:120]
+			links = re.findall(r'href=["\'](.*?)["\']', text, flags=re.I)
+			links = [l for l in links if l.startswith("http")]
+			fp = hashlib.sha1(text[:5000].encode("utf-8", "ignore")).hexdigest()
+			return Page(url=url, code=200 if text else 0, title=title, links=links[:50], fingerprint=fp)
 
-async def run(self) -> None:
-if aiohttp is None:
-LOG.error("aiohttp not installed — demo will skip network")
-for i in range(min(10, self.limit)):
-fake = f"https://example.org/{i}"
-p = self.parse(fake, f"<html><title>Example {i}</title><a href='https://example.org/{i+1}'>n</a></html>")
-self.index[p.url] = p
-return
+			async def run(self) -> None:
+			if aiohttp is None:
+			LOG.error("aiohttp not installed — demo will skip network")
+			for i in range(min(10, self.limit)):
+			fake = f"https://example.org/{i}"
+			p = self.parse(fake, f"<html><title>Example {i}</title><a href='https://example.org/{i+1}'>n</a></html>")
+			self.index[p.url] = p
+			return
 
-async with aiohttp.ClientSession(headers={"User-Agent": "MatrixCrawler/1.0"}) as session:
-while self.q and self.done < self.limit:
-url = self.q.popleft()
-if url in self.visited:
-continue
-self.visited.add(url)
-code, txt = await self.fetch(session, url)
-page = self.parse(url, txt)
-page.code = code
-self.index[url] = page
-self.done += 1
-LOG.info("done=%s url=%s title=%s", self.done, url, page.title)
-for l in page.links:
-if l not in self.visited and len(self.q) < self.limit * 2:
-self.q.append(l)
+			async with aiohttp.ClientSession(headers={"User-Agent": "MatrixCrawler/1.0"}) as session:
+			while self.q and self.done < self.limit:
+			url = self.q.popleft()
+			if url in self.visited:
+			continue
+			self.visited.add(url)
+			code, txt = await self.fetch(session, url)
+			page = self.parse(url, txt)
+			page.code = code
+			self.index[url] = page
+			self.done += 1
+			LOG.info("done=%s url=%s title=%s", self.done, url, page.title)
+			for l in page.links:
+			if l not in self.visited and len(self.q) < self.limit * 2:
+			self.q.append(l)
 
-def to_json(self) -> str:
-return json.dumps({k: dataclasses.asdict(v) for k, v in self.index.items()}, indent=2)
+			def to_json(self) -> str:
+			return json.dumps({k: dataclasses.asdict(v) for k, v in self.index.items()}, indent=2)
 
-async def amain(seed: str, limit: int):
-crawler = Crawler(seed, limit=limit, rate=4.0)
-await crawler.run()
-print(crawler.to_json())
+			async def amain(seed: str, limit: int):
+			crawler = Crawler(seed, limit=limit, rate=4.0)
+			await crawler.run()
+			print(crawler.to_json())
 
-def main(argv):
-import argparse
-p = argparse.ArgumentParser()
-p.add_argument("--seed", default="https://example.org")
-p.add_argument("--max-pages", type=int, default=40)
-a = p.parse_args(argv)
-asyncio.run(amain(a.seed, a.max_pages))
-return 0
+			def main(argv):
+			import argparse
+			p = argparse.ArgumentParser()
+			p.add_argument("--seed", default="https://example.org")
+			p.add_argument("--max-pages", type=int, default=40)
+			a = p.parse_args(argv)
+			asyncio.run(amain(a.seed, a.max_pages))
+			return 0
 
-if __name__ == "__main__":
-raise SystemExit(main(sys.argv[1:]))
-`,
+			if __name__ == "__main__":
+			raise SystemExit(main(sys.argv[1:]))
+			`,
 		rust: `use std::{collections::VecDeque, time::Duration};
-use clap::Parser;
-use tokio::{fs::File, io::{AsyncBufReadExt, BufReader}, time::sleep};
-use serde::Serialize;
+			use clap::Parser;
+			use tokio::{fs::File, io::{AsyncBufReadExt, BufReader}, time::sleep};
+			use serde::Serialize;
 
-#[derive(Parser, Debug)]
-#[command(name = "logtail", version, about = "Async log monitor")]
-struct Args{
-/// Path to the log file
-#[arg(short, long)]
-file: String,
-/// Max buffered lines
-#[arg(long, default_value_t = 200)]
-max: usize,
-}
+			#[derive(Parser, Debug)]
+			#[command(name = "logtail", version, about = "Async log monitor")]
+			struct Args{
+			/// Path to the log file
+			#[arg(short, long)]
+			file: String,
+			/// Max buffered lines
+			#[arg(long, default_value_t = 200)]
+			max: usize,
+			}
 
-#[derive(Debug, Serialize)]
-struct Line{
-idx: usize,
-level: String,
-text: String,
-}
+			#[derive(Debug, Serialize)]
+			struct Line{
+			idx: usize,
+			level: String,
+			text: String,
+			}
 
-fn classify(s: &str) -> String{
-if s.contains("ERROR"){ "ERROR".into() }
-else if s.contains("WARN"){ "WARN".into() }
-else if s.contains("DEBUG"){ "DEBUG".into() }
-else { "INFO".into() }
-}
+			fn classify(s: &str) -> String{
+			if s.contains("ERROR"){ "ERROR".into() }
+			else if s.contains("WARN"){ "WARN".into() }
+			else if s.contains("DEBUG"){ "DEBUG".into() }
+			else { "INFO".into() }
+			}
 
-#[tokio::main]
-async fn main(){
-let args = Args::parse();
-let path = args.file;
-let mut buf: VecDeque<Line> = VecDeque::new();
-let mut idx: usize = 0;
+			#[tokio::main]
+			async fn main(){
+			let args = Args::parse();
+			let path = args.file;
+			let mut buf: VecDeque<Line> = VecDeque::new();
+			let mut idx: usize = 0;
 
-loop {
-match File::open(&path).await {
-Ok(f) => {
-let reader = BufReader::new(f);
-let mut lines = reader.lines();
-while let Ok(Some(l)) = lines.try_next_line().await {
-let level = classify(&l);
-let line = Line{ idx, level, text: l };
-if buf.len() >= args.max { buf.pop_front(); }
-buf.push_back(line);
-idx += 1;
-}
-// fake render
-println!("--- last {} lines ---", buf.len());
-for ln in buf.iter().rev().take(15){
-println!("[{:05}] {:<5} {}", ln.idx, ln.level, ln.text);
-}
-}
-Err(e) => {
-eprintln!("open error: {e}");
-}
-}
-sleep(Duration::from_millis(600)).await;
-}
-}
-`,
+			loop {
+			match File::open(&path).await {
+			Ok(f) => {
+			let reader = BufReader::new(f);
+			let mut lines = reader.lines();
+			while let Ok(Some(l)) = lines.try_next_line().await {
+			let level = classify(&l);
+			let line = Line{ idx, level, text: l };
+			if buf.len() >= args.max { buf.pop_front(); }
+			buf.push_back(line);
+			idx += 1;
+			}
+			// fake render
+			println!("--- last {} lines ---", buf.len());
+			for ln in buf.iter().rev().take(15){
+			println!("[{:05}] {:<5} {}", ln.idx, ln.level, ln.text);
+			}
+			}
+			Err(e) => {
+			eprintln!("open error: {e}");
+			}
+			}
+			sleep(Duration::from_millis(600)).await;
+			}
+			}
+			`,
 		java: `import java.io.Closeable;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.*;
+			import java.time.Instant;
+			import java.util.*;
+			import java.util.concurrent.*;
 
-public final class MiniScheduler implements Closeable {
-private final ScheduledExecutorService exec = Executors.newScheduledThreadPool(2);
-private final Map<String, ScheduledFuture<?>> tasks = new ConcurrentHashMap<>();
+			public final class MiniScheduler implements Closeable {
+			private final ScheduledExecutorService exec = Executors.newScheduledThreadPool(2);
+			private final Map<String, ScheduledFuture<?>> tasks = new ConcurrentHashMap<>();
 
-public interface Job { void run() throws Exception; }
+			public interface Job { void run() throws Exception; }
 
-public String every(String name, long periodMs, Job job){
-ScheduledFuture<?> f = exec.scheduleAtFixedRate(() -> {
-try{
-System.out.printf("%s RUN %s%n", Instant.now(), name);
-job.run();
-}catch(Exception e){
-System.err.printf("%s ERR %s: %s%n", Instant.now(), name, e.getMessage());
-}
-}, periodMs, periodMs, TimeUnit.MILLISECONDS);
-tasks.put(name, f);
-return name;
-}
+			public String every(String name, long periodMs, Job job){
+			ScheduledFuture<?> f = exec.scheduleAtFixedRate(() -> {
+			try{
+			System.out.printf("%s RUN %s%n", Instant.now(), name);
+			job.run();
+			}catch(Exception e){
+			System.err.printf("%s ERR %s: %s%n", Instant.now(), name, e.getMessage());
+			}
+			}, periodMs, periodMs, TimeUnit.MILLISECONDS);
+			tasks.put(name, f);
+			return name;
+			}
 
-public void cancel(String name){
-ScheduledFuture<?> f = tasks.remove(name);
-if (f != null) f.cancel(false);
-}
+			public void cancel(String name){
+			ScheduledFuture<?> f = tasks.remove(name);
+			if (f != null) f.cancel(false);
+			}
 
-@Override public void close(){
-exec.shutdown();
-}
+			@Override public void close(){
+			exec.shutdown();
+			}
 
-// Demo
-public static void main(String[] args) throws Exception {
-try (MiniScheduler s = new MiniScheduler()){
-s.every("heartbeat", 700, () -> System.out.println("tick"));
-s.every("work", 1200, () -> {
-Thread.sleep(100);
-System.out.println("work done");
-});
-Thread.sleep(6000);
-}
-}
-}
-`,
+			// Demo
+			public static void main(String[] args) throws Exception {
+			try (MiniScheduler s = new MiniScheduler()){
+			s.every("heartbeat", 700, () -> System.out.println("tick"));
+			s.every("work", 1200, () -> {
+			Thread.sleep(100);
+			System.out.println("work done");
+			});
+			Thread.sleep(6000);
+			}
+			}
+			}
+			`,
 		sql: `DROP TABLE IF EXISTS orders_items;
-DROP TABLE IF EXISTS orders;
-DROP TABLE IF EXISTS products;
-DROP TABLE IF EXISTS customers;
-DROP SCHEMA IF EXISTS audit CASCADE;
+			DROP TABLE IF EXISTS orders;
+			DROP TABLE IF EXISTS products;
+			DROP TABLE IF EXISTS customers;
+			DROP SCHEMA IF EXISTS audit CASCADE;
 
-CREATE TABLE customers (
-id           SERIAL PRIMARY KEY,
-created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-email        TEXT NOT NULL UNIQUE,
-full_name    TEXT NOT NULL,
-country      TEXT NOT NULL,
-is_vip       BOOLEAN NOT NULL DEFAULT FALSE
-);
+			CREATE TABLE customers (
+			id           SERIAL PRIMARY KEY,
+			created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+			email        TEXT NOT NULL UNIQUE,
+			full_name    TEXT NOT NULL,
+			country      TEXT NOT NULL,
+			is_vip       BOOLEAN NOT NULL DEFAULT FALSE
+			);
 
-CREATE TABLE products (
-id           SERIAL PRIMARY KEY,
-sku          TEXT NOT NULL UNIQUE,
-name         TEXT NOT NULL,
-unit_price   NUMERIC(12,2) NOT NULL CHECK (unit_price >= 0),
-category     TEXT NOT NULL
-);
+			CREATE TABLE products (
+			id           SERIAL PRIMARY KEY,
+			sku          TEXT NOT NULL UNIQUE,
+			name         TEXT NOT NULL,
+			unit_price   NUMERIC(12,2) NOT NULL CHECK (unit_price >= 0),
+			category     TEXT NOT NULL
+			);
 
-CREATE TABLE orders (
-id           BIGSERIAL PRIMARY KEY,
-created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-customer_id  INT NOT NULL REFERENCES customers(id),
-currency     TEXT NOT NULL DEFAULT 'USD',
-status       TEXT NOT NULL CHECK (status IN ('NEW','PAID','SHIPPED','CANCELLED'))
-);
+			CREATE TABLE orders (
+			id           BIGSERIAL PRIMARY KEY,
+			created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+			customer_id  INT NOT NULL REFERENCES customers(id),
+			currency     TEXT NOT NULL DEFAULT 'USD',
+			status       TEXT NOT NULL CHECK (status IN ('NEW','PAID','SHIPPED','CANCELLED'))
+			);
 
-CREATE TABLE orders_items (
-order_id     BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-product_id   INT NOT NULL REFERENCES products(id),
-qty          INT NOT NULL CHECK (qty > 0),
-unit_price   NUMERIC(12,2) NOT NULL CHECK (unit_price >= 0),
-PRIMARY KEY (order_id, product_id)
-);
+			CREATE TABLE orders_items (
+			order_id     BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+			product_id   INT NOT NULL REFERENCES products(id),
+			qty          INT NOT NULL CHECK (qty > 0),
+			unit_price   NUMERIC(12,2) NOT NULL CHECK (unit_price >= 0),
+			PRIMARY KEY (order_id, product_id)
+			);
 
--- 2) Indexes
-CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
-CREATE INDEX IF NOT EXISTS idx_orders_created   ON orders(created_at);
-CREATE INDEX IF NOT EXISTS idx_items_product    ON orders_items(product_id);
+			-- 2) Indexes
+			CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+			CREATE INDEX IF NOT EXISTS idx_orders_created   ON orders(created_at);
+			CREATE INDEX IF NOT EXISTS idx_items_product    ON orders_items(product_id);
 
--- 3) Sample data
-INSERT INTO customers(email, full_name, country, is_vip) VALUES
-('neo@example.com','Neo Anderson','US', true),
-('trinity@example.com','Trinity','US', true),
-('morpheus@example.com','Morpheus','US', true),
-('smith@example.com','Agent Smith','US', false),
-('ora@example.com','The Oracle','GR', true),
-('mouse@example.com','Mouse','US', false),
-('tank@example.com','Tank','US', false),
-('dozer@example.com','Dozer','US', false);
+			-- 3) Sample data
+			INSERT INTO customers(email, full_name, country, is_vip) VALUES
+			('neo@example.com','Neo Anderson','US', true),
+			('trinity@example.com','Trinity','US', true),
+			('morpheus@example.com','Morpheus','US', true),
+			('smith@example.com','Agent Smith','US', false),
+			('ora@example.com','The Oracle','GR', true),
+			('mouse@example.com','Mouse','US', false),
+			('tank@example.com','Tank','US', false),
+			('dozer@example.com','Dozer','US', false);
 
-INSERT INTO products(sku, name, unit_price, category) VALUES
-('KB-001','Mechanical Keyboard', 129.90, 'Peripherals'),
-('MS-010','Optical Mouse',        39.50, 'Peripherals'),
-('MN-404','27 inch Monitor',     249.00, 'Displays'),
-('HD-900','External SSD 2TB',    219.99, 'Storage'),
-('CM-777','USB-C Cable',           9.99, 'Cables'),
-('HS-110','Headset',              69.99, 'Audio');
+			INSERT INTO products(sku, name, unit_price, category) VALUES
+			('KB-001','Mechanical Keyboard', 129.90, 'Peripherals'),
+			('MS-010','Optical Mouse',        39.50, 'Peripherals'),
+			('MN-404','27 inch Monitor',     249.00, 'Displays'),
+			('HD-900','External SSD 2TB',    219.99, 'Storage'),
+			('CM-777','USB-C Cable',           9.99, 'Cables'),
+			('HS-110','Headset',              69.99, 'Audio');
 
--- Orders
-INSERT INTO orders(customer_id, currency, status, created_at) VALUES
-(1,'USD','PAID',      now() - interval '3 days'),
-(2,'USD','PAID',      now() - interval '2 days'),
-(3,'USD','SHIPPED',   now() - interval '1 day'),
-(1,'USD','CANCELLED', now() - interval '18 hours'),
-(4,'USD','NEW',       now() - interval '2 hours');
+			-- Orders
+			INSERT INTO orders(customer_id, currency, status, created_at) VALUES
+			(1,'USD','PAID',      now() - interval '3 days'),
+			(2,'USD','PAID',      now() - interval '2 days'),
+			(3,'USD','SHIPPED',   now() - interval '1 day'),
+			(1,'USD','CANCELLED', now() - interval '18 hours'),
+			(4,'USD','NEW',       now() - interval '2 hours');
 
--- Items
-INSERT INTO orders_items(order_id, product_id, qty, unit_price) VALUES
-(1,1,1,129.90),(1,2,2,39.50),
-(2,3,1,249.00),(2,6,1,69.99),
-(3,4,1,219.99),(3,5,3,9.99),
-(4,6,2,69.99),
-(5,5,5,9.99);
+			-- Items
+			INSERT INTO orders_items(order_id, product_id, qty, unit_price) VALUES
+			(1,1,1,129.90),(1,2,2,39.50),
+			(2,3,1,249.00),(2,6,1,69.99),
+			(3,4,1,219.99),(3,5,3,9.99),
+			(4,6,2,69.99),
+			(5,5,5,9.99);
 
--- 4) Computed totals view
-CREATE OR REPLACE VIEW v_order_totals AS
-SELECT
-o.id AS order_id,
-o.customer_id,
-o.status,
-o.created_at,
-SUM(oi.qty * oi.unit_price) AS subtotal,
-CASE WHEN c.is_vip THEN 0.9 ELSE 1.0 END AS vip_multiplier,
-ROUND(SUM(oi.qty * oi.unit_price) * (CASE WHEN c.is_vip THEN 0.9 ELSE 1.0 END), 2) AS total_after_vip
-FROM orders o
-JOIN orders_items oi ON oi.order_id = o.id
-JOIN customers c ON c.id = o.customer_id
-GROUP BY o.id, o.customer_id, o.status, o.created_at, c.is_vip;
+			-- 4) Computed totals view
+			CREATE OR REPLACE VIEW v_order_totals AS
+			SELECT
+			o.id AS order_id,
+			o.customer_id,
+			o.status,
+			o.created_at,
+			SUM(oi.qty * oi.unit_price) AS subtotal,
+			CASE WHEN c.is_vip THEN 0.9 ELSE 1.0 END AS vip_multiplier,
+			ROUND(SUM(oi.qty * oi.unit_price) * (CASE WHEN c.is_vip THEN 0.9 ELSE 1.0 END), 2) AS total_after_vip
+			FROM orders o
+			JOIN orders_items oi ON oi.order_id = o.id
+			JOIN customers c ON c.id = o.customer_id
+			GROUP BY o.id, o.customer_id, o.status, o.created_at, c.is_vip;
 
--- 5) Window functions — RFM-ish scoring
-WITH spend AS (
-SELECT customer_id, SUM(total_after_vip) AS spent
-FROM v_order_totals
-WHERE status IN ('PAID','SHIPPED')
-GROUP BY customer_id
-),
-freq AS (
-SELECT customer_id, COUNT(*) AS orders_count
-FROM orders
-WHERE status IN ('PAID','SHIPPED')
-GROUP BY customer_id
-),
-recency AS (
-SELECT customer_id, MIN(EXTRACT(EPOCH FROM (now() - created_at))/86400)::int AS days_since_first
-FROM orders
-WHERE status IN ('PAID','SHIPPED')
-GROUP BY customer_id
-)
-SELECT
-c.id, c.full_name,
-COALESCE(s.spent,0) AS spent,
-COALESCE(f.orders_count,0) AS orders_count,
-COALESCE(r.days_since_first,9999) AS days_since_first,
-NTILE(5) OVER (ORDER BY COALESCE(s.spent,0))          AS spend_tile,
-NTILE(5) OVER (ORDER BY COALESCE(f.orders_count,0))   AS freq_tile,
-NTILE(5) OVER (ORDER BY -COALESCE(r.days_since_first,9999)) AS recency_tile
-FROM customers c
-LEFT JOIN spend s ON s.customer_id = c.id
-LEFT JOIN freq  f ON f.customer_id = c.id
-LEFT JOIN recency r ON r.customer_id = c.id
-ORDER BY spent DESC, orders_count DESC, c.id;
+			-- 5) Window functions — RFM-ish scoring
+			WITH spend AS (
+			SELECT customer_id, SUM(total_after_vip) AS spent
+			FROM v_order_totals
+			WHERE status IN ('PAID','SHIPPED')
+			GROUP BY customer_id
+			),
+			freq AS (
+			SELECT customer_id, COUNT(*) AS orders_count
+			FROM orders
+			WHERE status IN ('PAID','SHIPPED')
+			GROUP BY customer_id
+			),
+			recency AS (
+			SELECT customer_id, MIN(EXTRACT(EPOCH FROM (now() - created_at))/86400)::int AS days_since_first
+			FROM orders
+			WHERE status IN ('PAID','SHIPPED')
+			GROUP BY customer_id
+			)
+			SELECT
+			c.id, c.full_name,
+			COALESCE(s.spent,0) AS spent,
+			COALESCE(f.orders_count,0) AS orders_count,
+			COALESCE(r.days_since_first,9999) AS days_since_first,
+			NTILE(5) OVER (ORDER BY COALESCE(s.spent,0))          AS spend_tile,
+			NTILE(5) OVER (ORDER BY COALESCE(f.orders_count,0))   AS freq_tile,
+			NTILE(5) OVER (ORDER BY -COALESCE(r.days_since_first,9999)) AS recency_tile
+			FROM customers c
+			LEFT JOIN spend s ON s.customer_id = c.id
+			LEFT JOIN freq  f ON f.customer_id = c.id
+			LEFT JOIN recency r ON r.customer_id = c.id
+			ORDER BY spent DESC, orders_count DESC, c.id;
 
--- 6) CTE with rollups
-WITH per_cat AS (
-SELECT p.category, SUM(oi.qty * oi.unit_price) AS revenue
-FROM orders_items oi JOIN products p ON p.id = oi.product_id
-GROUP BY 1
-)
-SELECT category, revenue, ROUND(100*revenue/SUM(revenue) OVER (),2) AS pct
-FROM per_cat
-ORDER BY revenue DESC;
+			-- 6) CTE with rollups
+			WITH per_cat AS (
+			SELECT p.category, SUM(oi.qty * oi.unit_price) AS revenue
+			FROM orders_items oi JOIN products p ON p.id = oi.product_id
+			GROUP BY 1
+			)
+			SELECT category, revenue, ROUND(100*revenue/SUM(revenue) OVER (),2) AS pct
+			FROM per_cat
+			ORDER BY revenue DESC;
 
--- 7) Audit schema: trigger example
-CREATE SCHEMA IF NOT EXISTS audit;
+			-- 7) Audit schema: trigger example
+			CREATE SCHEMA IF NOT EXISTS audit;
 
-CREATE TABLE audit.order_changes (
-id BIGSERIAL PRIMARY KEY,
-ts TIMESTAMPTZ NOT NULL DEFAULT now(),
-order_id BIGINT NOT NULL,
-old_status TEXT,
-new_status TEXT
-);
+			CREATE TABLE audit.order_changes (
+			id BIGSERIAL PRIMARY KEY,
+			ts TIMESTAMPTZ NOT NULL DEFAULT now(),
+			order_id BIGINT NOT NULL,
+			old_status TEXT,
+			new_status TEXT
+			);
 
-CREATE OR REPLACE FUNCTION audit.fn_order_status() RETURNS trigger AS $$
-BEGIN
-IF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
-INSERT INTO audit.order_changes(order_id, old_status, new_status)
-VALUES (NEW.id, OLD.status, NEW.status);
-END IF;
-RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+			CREATE OR REPLACE FUNCTION audit.fn_order_status() RETURNS trigger AS $$
+			BEGIN
+			IF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
+			INSERT INTO audit.order_changes(order_id, old_status, new_status)
+			VALUES (NEW.id, OLD.status, NEW.status);
+			END IF;
+			RETURN NEW;
+			END;
+			$$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_order_status ON orders;
-CREATE TRIGGER trg_order_status
-AFTER UPDATE ON orders
-FOR EACH ROW EXECUTE FUNCTION audit.fn_order_status();
+			DROP TRIGGER IF EXISTS trg_order_status ON orders;
+			CREATE TRIGGER trg_order_status
+			AFTER UPDATE ON orders
+			FOR EACH ROW EXECUTE FUNCTION audit.fn_order_status();
 
--- 8) Example updates to fire the trigger
-UPDATE orders SET status='PAID' WHERE status='NEW';
-UPDATE orders SET status='SHIPPED' WHERE status='PAID';
+			-- 8) Example updates to fire the trigger
+			UPDATE orders SET status='PAID' WHERE status='NEW';
+			UPDATE orders SET status='SHIPPED' WHERE status='PAID';
 
--- 9) Show audit
-SELECT * FROM audit.order_changes ORDER BY ts DESC;
+			-- 9) Show audit
+			SELECT * FROM audit.order_changes ORDER BY ts DESC;
 
--- 10) Parameterized report (simulated with CTE vars)
-WITH params AS (SELECT 'US'::text AS country_filter)
-SELECT o.id, c.full_name, v.subtotal, v.total_after_vip, o.status
-FROM orders o
-JOIN v_order_totals v ON v.order_id = o.id
-JOIN customers c ON c.id = o.customer_id
-JOIN params p ON p.country_filter = c.country
-ORDER BY o.created_at DESC;
-`,
+			-- 10) Parameterized report (simulated with CTE vars)
+			WITH params AS (SELECT 'US'::text AS country_filter)
+			SELECT o.id, c.full_name, v.subtotal, v.total_after_vip, o.status
+			FROM orders o
+			JOIN v_order_totals v ON v.order_id = o.id
+			JOIN customers c ON c.id = o.customer_id
+			JOIN params p ON p.country_filter = c.country
+			ORDER BY o.created_at DESC;
+			`,
 		asm: `BITS 64
-GLOBAL _start
+			GLOBAL _start
 
-section .data
-banner:     db  0x1b,"[32m== MATRIX ==[0m",10
-banner_len: equ $-banner
+			section .data
+			banner:     db  0x1b,"[32m== MATRIX ==[0m",10
+			banner_len: equ $-banner
 
-prompt:     db  "Input: ",0
-prompt_len: equ $-prompt
+			prompt:     db  "Input: ",0
+			prompt_len: equ $-prompt
 
-buf:        times 256 db 0
+			buf:        times 256 db 0
 
-section .text
-_start:
-; write banner
-mov rax,1           ; sys_write
-mov rdi,1
-mov rsi,banner
-mov rdx,banner_len
-syscall
+			section .text
+			_start:
+			; write banner
+			mov rax,1           ; sys_write
+			mov rdi,1
+			mov rsi,banner
+			mov rdx,banner_len
+			syscall
 
-; write prompt
-mov rax,1
-mov rdi,1
-mov rsi,prompt
-mov rdx,prompt_len
-syscall
+			; write prompt
+			mov rax,1
+			mov rdi,1
+			mov rsi,prompt
+			mov rdx,prompt_len
+			syscall
 
-; read into buf
-mov rax,0           ; sys_read
-mov rdi,0
-mov rsi,buf
-mov rdx,256
-syscall             ; RAX = count
+			; read into buf
+			mov rax,0           ; sys_read
+			mov rdi,0
+			mov rsi,buf
+			mov rdx,256
+			syscall             ; RAX = count
 
-; RAX contains count, set RCX = count-1 (ignore newline)
-mov rcx, rax
-dec rcx
+			; RAX contains count, set RCX = count-1 (ignore newline)
+			mov rcx, rax
+			dec rcx
 
-; Reverse in-place
-xor r8, r8          ; i = 0
-mov r9, rcx         ; j = n-1
-.rev_loop:
-cmp r8, r9
-jge .rev_done
-mov al, [buf + r8]
-mov bl, [buf + r9]
-mov [buf + r8], bl
-mov [buf + r9], al
-inc r8
-dec r9
-jmp .rev_loop
-.rev_done:
+			; Reverse in-place
+			xor r8, r8          ; i = 0
+			mov r9, rcx         ; j = n-1
+			.rev_loop:
+			cmp r8, r9
+			jge .rev_done
+			mov al, [buf + r8]
+			mov bl, [buf + r9]
+			mov [buf + r8], bl
+			mov [buf + r9], al
+			inc r8
+			dec r9
+			jmp .rev_loop
+			.rev_done:
 
-; write result
-mov rax,1
-mov rdi,1
-mov rsi,buf
-mov rdx,rcx
-syscall
+			; write result
+			mov rax,1
+			mov rdi,1
+			mov rsi,buf
+			mov rdx,rcx
+			syscall
 
-; exit(0)
-mov rax,60
-xor rdi, rdi
-syscall
-`,
+			; exit(0)
+			mov rax,60
+			xor rdi, rdi
+			syscall
+			`,
 	};
 
 	// === Reset UI ai default quando ricarichi la pagina  ===
@@ -1420,285 +1419,285 @@ syscall
 
 	// Ricalcola posizione cursore dopo cambi layout/font/fullscreen
 	function resyncCursorAfterLayout(){
-	// doppio rAF per aspettare il reflow
-	requestAnimationFrame(()=> {
-		(typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.();
-		setTimeout(()=> (typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.(), 30);
-	});
-}
-
-
-// === Cursor Style ===
-const cursorSelect = document.getElementById('cursorSelect');
-
-function setCursorStyle(style){
-	if (!cursor) return;
-	const variants = ['cursor--bar','cursor--vintage','cursor--underline','cursor--double','cursor--box','cursor--box-empty'];
-	cursor.classList.remove(...variants);
-	if (style && style !== 'default') {
-		cursor.classList.add('cursor--' + style);
+		// doppio rAF per aspettare il reflow
+		requestAnimationFrame(()=> {
+			(typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.();
+			setTimeout(()=> (typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.(), 30);
+		});
 	}
-	// se il tipo cambia (es. bar -> box), un render aiuta a riallineare
-	if (typeof render === 'function') render();
-}
 
-cursorSelect?.addEventListener('change', () => {
-	setCursorStyle(cursorSelect.value);
-});
 
-// inizializza il valore del select in base allo stato attuale (non forziamo un default)
-(function initCursorSelect(){
-	if (!cursorSelect || !cursor) return;
-	const existing = [...cursor.classList].find(c => c.startsWith('cursor--'));
-	cursorSelect.value = existing ? existing.replace('cursor--','') : 'default';
-})();
+	// === Cursor Style ===
+	const cursorSelect = document.getElementById('cursorSelect');
 
-const cursorBlinkChk = document.getElementById('cursorBlinkChk');
-
-// inizializza lo stato in base alla classe presente (di default: lampeggia)
-if (cursorBlinkChk) {
-	cursorBlinkChk.checked = !cursor.classList.contains('no-blink');
-	cursorBlinkChk.addEventListener('change', () => {
+	function setCursorStyle(style){
 		if (!cursor) return;
-		cursor.classList.toggle('no-blink', !cursorBlinkChk.checked);
-		// piccolo re-render per riallineare eventuale stile
+		const variants = ['cursor--bar','cursor--vintage','cursor--underline','cursor--double','cursor--box','cursor--box-empty'];
+		cursor.classList.remove(...variants);
+		if (style && style !== 'default') {
+			cursor.classList.add('cursor--' + style);
+		}
+		// se il tipo cambia (es. bar -> box), un render aiuta a riallineare
 		if (typeof render === 'function') render();
-	});
-}
-
-// Load default code
-function loadExample(mode){
-	rawText = examples[mode] || examples.py;
-	source.value = rawText;
-	ptr = 0;
-	render();
-}
-
-/* =========================
-Syntax Highlighter v2
-Supporto: python, rust, java, sql, asm (x86)
-Fallback: generic
-Usa le classi .kw .type .str .num .comment .fn .punct
-========================= */
-
-function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-// Costruisce liste -> pattern \b(?:A|B|C)\b
-function wordsRE(list){ return "\\b(?:" + list.join("|").replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&") + ")\\b"; }
-
-// Lexer per-lingua (pattern nominati). Ordine: string|comment -> specifici -> numeri/fn/kw/type -> punct
-function buildLexer(cfg){
-	// Patterns comuni
-	const strGeneric = `(?<str>"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*')`;
-	const mlCommentC = `(?<comment>/\\*[\\s\\S]*?\\*/)`;     // C/Java/Rust/SQL
-	const slCommentC = `(?<comment>//[^\\n]*)`;               // C/Java/Rust
-	const slCommentHash = `(?<comment>#[^\\n]*)`;             // Python
-	const slCommentSQL = `(?<comment>--[^\\n]*)`;             // SQL
-	const number = `(?<num>\\b0x[\\da-fA-F]+\\b|\\b\\d+(?:\\.\\d+)?\\b)`;
-	const punct = `(?<punct>[{}()[\\];.,:+\\-/*%<>=!?&|^~])`;
-	const fnCall = `(?<fn>[A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()`; // solo l’identificatore
-
-	// Merge specifici per lingua
-	if (cfg.lang === 'python'){
-		const kw = wordsRE([
-			'def','class','return','if','elif','else','for','while','import','from','as','with','try','except','finally',
-			'raise','pass','lambda','yield','del','global','nonlocal','assert','async','await','in','is','and','or','not'
-		]);
-		const type = wordsRE(['int','float','bool','str','list','tuple','dict','set','None','True','False','bytes','range','object']);
-		const triple = `(?<str>'''[\\s\\S]*?'''|"""[\\s\\S]*?""")`;
-		const re = new RegExp(
-			[
-				triple, strGeneric,
-				slCommentHash,
-				number,
-				`(?<kw>${kw})`,
-				`(?<type>${type})`,
-				fnCall,
-				punct
-			].join('|'),
-			'gmi'
-		);
-		return re;
 	}
 
-	if (cfg.lang === 'rust'){
-		const kw = wordsRE([
-			'fn','let','mut','pub','crate','mod','use','impl','trait','struct','enum','match','if','else','loop','while','for',
-			'return','move','ref','self','super','dyn','unsafe','async','await','where','const','static'
-		]);
-		const type = wordsRE([
-			'u8','u16','u32','u64','u128','i8','i16','i32','i64','i128','usize','isize','bool','char','str','String','Vec',
-			'Option','Result','Box','Rc','Arc','Self'
-		]);
-		const rustRaw = `(?<str>r(#{0,5})"(?:[\\s\\S]*?)"\\2)`; // r"..." r#"... "# ecc. fino a 5 #
-		const lifetime = `(?<type>'[A-Za-z_][A-Za-z0-9_]*)`;
-		const macroId = `(?<kw>[a-z_][a-z0-9_]*)(?=!)`; // foo! macro
-		const re = new RegExp(
-			[
-				rustRaw, strGeneric,
-				mlCommentC, slCommentC,
-				lifetime,
-				number,
-				macroId,
-				`(?<kw>${kw})`,
-				`(?<type>${type})`,
-				fnCall,
-				punct
-			].join('|'),
-			'gmi'
-		);
-		return re;
-	}
-
-	if (cfg.lang === 'java'){
-		const kw = wordsRE([
-			'public','private','protected','class','interface','enum','extends','implements','package','import','new','return',
-			'if','else','for','while','do','switch','case','break','continue','try','catch','finally','throw','throws',
-			'this','super','static','final','abstract','volatile','transient','synchronized','instanceof'
-		]);
-		const type = wordsRE([
-			'void','int','long','double','float','boolean','char','byte','short','String','List','Map','Set','ArrayList','HashMap'
-		]);
-		const re = new RegExp(
-			[
-				strGeneric,
-				mlCommentC, slCommentC,
-				number,
-				`(?<kw>${kw})`,
-				`(?<type>${type})`,
-				fnCall,
-				punct
-			].join('|'),
-			'gmi'
-		);
-		return re;
-	}
-
-	if (cfg.lang === 'sql'){
-		const kw = wordsRE([
-			'SELECT','FROM','WHERE','INSERT','INTO','VALUES','UPDATE','SET','DELETE','CREATE','TABLE','PRIMARY','KEY','FOREIGN',
-			'NOT','NULL','JOIN','LEFT','RIGHT','INNER','OUTER','ON','AND','OR','ORDER','BY','GROUP','HAVING','LIMIT','OFFSET',
-			'AS','DISTINCT','UNION','ALL','ALTER','ADD','DROP','INDEX'
-		]);
-		const type = wordsRE([
-			'INT','INTEGER','SERIAL','BIGINT','SMALLINT','DECIMAL','NUMERIC','REAL','DOUBLE','PRECISION','BOOLEAN','TEXT','VARCHAR',
-			'CHAR','DATE','TIMESTAMP','TIME','JSON','UUID'
-		]);
-		const strSQL = `(?<str>'(?:''|[^'])*')`; // '' = escape
-		const re = new RegExp(
-			[
-				strSQL, strGeneric,
-				mlCommentC, slCommentSQL,
-				number,
-				`(?<kw>${kw})`,
-				`(?<type>${type})`,
-				fnCall,
-				punct
-			].join('|'),
-			'gmi'
-		);
-		return re;
-	}
-
-	if (cfg.lang === 'asm'){ // x86
-		const kw = wordsRE([
-			'mov','lea','push','pop','call','ret','jmp','je','jne','jg','jl','jge','jle','cmp','test',
-			'add','sub','mul','imul','div','idiv','and','or','xor','shl','shr','inc','dec','nop',
-			'int','sysenter','syscall'
-		]);
-		const regs = `(?<type>\\b(?:[re]?(?:ax|bx|cx|dx|si|di|sp|bp)|r1[0-5]|r[8-9]|[xy]mm\\d+)\\b)`;
-		const label = `(?<fn>^[A-Za-z_][A-Za-z0-9_]*)(?=:)`;
-		const slCommentAsm = `(?<comment>;[^\\n]*)`;
-		const re = new RegExp(
-			[
-				strGeneric,
-				slCommentAsm,
-				regs,
-				number,
-				label,
-				`(?<kw>${kw})`,
-				fnCall, // per eventuali macro style
-				punct
-			].join('|'),
-			'gmi'
-		);
-		return re;
-	}
-
-	// Fallback generico
-	const re = new RegExp([strGeneric, mlCommentC, slCommentC, slCommentHash, slCommentSQL, number, fnCall, punct].join('|'), 'gmi');
-	return re;
-}
-
-function highlight(text, mode){
-	if (!text) return '';
-	const lang = ({py:'python', rust:'rust', java:'java', sql:'sql', asm:'asm'})[mode] || 'generic';
-	const re = buildLexer({lang});
-
-	let out = '';
-	let lastIndex = 0;
-
-	// Itera i match e costruisce l’HTML mantenendo l’escape
-	text.replace(re, (m, _1, _2, _3, _4, _5, _6, _7, _8, _9, offset, _str, groups) => {
-		// testo "plain" fino al match
-		out += esc(text.slice(lastIndex, offset));
-
-		// quale gruppo ha matchato?
-		let cls = null;
-		if (groups){
-			if (groups.comment) cls = 'comment';
-				else if (groups.str) cls = 'str';
-					else if (groups.type) cls = 'type';
-						else if (groups.kw) cls = 'kw';
-							else if (groups.fn) cls = 'fn';
-								else if (groups.num) cls = 'num';
-									else if (groups.punct) cls = 'punct';
-		}
-		if (cls){
-			out += `<span class="${cls}">` + esc(m) + `</span>`;
-		} else {
-			out += esc(m);
-		}
-
-		lastIndex = offset + m.length;
-		return m;
+	cursorSelect?.addEventListener('change', () => {
+		setCursorStyle(cursorSelect.value);
 	});
 
-	// resto finale
-	out += esc(text.slice(lastIndex));
-	return out;
-}
+	// inizializza il valore del select in base allo stato attuale (non forziamo un default)
+	(function initCursorSelect(){
+		if (!cursorSelect || !cursor) return;
+		const existing = [...cursor.classList].find(c => c.startsWith('cursor--'));
+		cursorSelect.value = existing ? existing.replace('cursor--','') : 'default';
+	})();
 
-// === Render incrementale + rAF ===
-let lastRenderedPtr = 0;   // quanto è già stato “dipinto”
-let renderRAF = 0;
+	const cursorBlinkChk = document.getElementById('cursorBlinkChk');
 
-function render(force = false){
-	if (!force && renderRAF) return;
-	if (force) { 
-		flushRender(); 
-		return; 
+	// inizializza lo stato in base alla classe presente (di default: lampeggia)
+	if (cursorBlinkChk) {
+		cursorBlinkChk.checked = !cursor.classList.contains('no-blink');
+		cursorBlinkChk.addEventListener('change', () => {
+			if (!cursor) return;
+			cursor.classList.toggle('no-blink', !cursorBlinkChk.checked);
+			// piccolo re-render per riallineare eventuale stile
+			if (typeof render === 'function') render();
+		});
 	}
-	renderRAF = requestAnimationFrame(flushRender);
-}
 
-function getLang(){
-	// aggiorna l’ID qui sotto con quello reale del tuo select della lingua
-	const v = (document.getElementById('modeSelect')?.value || '').toLowerCase();
-	if (v.includes('python')) return 'py';
-	if (v.includes('rust'))   return 'rust';
-	if (v.includes('java'))   return 'java';
-	if (v.includes('sql'))    return 'sql';
-	if (v.includes('asm') || v.includes('x86')) return 'asm';
-	return 'generic';
-}
+	// Load default code
+	function loadExample(mode){
+		rawText = examples[mode] || examples.py;
+		source.value = rawText;
+		ptr = 0;
+		render();
+	}
 
-function flushRender(){
-	renderRAF = 0;
-	const lang = getLang();
+	/* =========================
+	Syntax Highlighter v2
+	Supporto: python, rust, java, sql, asm (x86)
+	Fallback: generic
+	Usa le classi .kw .type .str .num .comment .fn .punct
+	========================= */
 
-	// Se abbiamo riavvolto/cancellato, ricostruisci da zero fino a ptr
-	if (ptr < lastRenderedPtr || (lastRenderedPtr === 0 && screen.innerHTML === '')) {
+	function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+	// Costruisce liste -> pattern \b(?:A|B|C)\b
+	function wordsRE(list){ return "\\b(?:" + list.join("|").replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&") + ")\\b"; }
+
+	// Lexer per-lingua (pattern nominati). Ordine: string|comment -> specifici -> numeri/fn/kw/type -> punct
+	function buildLexer(cfg){
+		// Patterns comuni
+		const strGeneric = `(?<str>"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*')`;
+		const mlCommentC = `(?<comment>/\\*[\\s\\S]*?\\*/)`;     // C/Java/Rust/SQL
+		const slCommentC = `(?<comment>//[^\\n]*)`;               // C/Java/Rust
+		const slCommentHash = `(?<comment>#[^\\n]*)`;             // Python
+		const slCommentSQL = `(?<comment>--[^\\n]*)`;             // SQL
+		const number = `(?<num>\\b0x[\\da-fA-F]+\\b|\\b\\d+(?:\\.\\d+)?\\b)`;
+		const punct = `(?<punct>[{}()[\\];.,:+\\-/*%<>=!?&|^~])`;
+		const fnCall = `(?<fn>[A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()`; // solo l’identificatore
+
+		// Merge specifici per lingua
+		if (cfg.lang === 'python'){
+			const kw = wordsRE([
+				'def','class','return','if','elif','else','for','while','import','from','as','with','try','except','finally',
+				'raise','pass','lambda','yield','del','global','nonlocal','assert','async','await','in','is','and','or','not'
+			]);
+			const type = wordsRE(['int','float','bool','str','list','tuple','dict','set','None','True','False','bytes','range','object']);
+			const triple = `(?<str>'''[\\s\\S]*?'''|"""[\\s\\S]*?""")`;
+			const re = new RegExp(
+				[
+					triple, strGeneric,
+					slCommentHash,
+					number,
+					`(?<kw>${kw})`,
+					`(?<type>${type})`,
+					fnCall,
+					punct
+				].join('|'),
+				'gmi'
+			);
+			return re;
+		}
+
+		if (cfg.lang === 'rust'){
+			const kw = wordsRE([
+				'fn','let','mut','pub','crate','mod','use','impl','trait','struct','enum','match','if','else','loop','while','for',
+				'return','move','ref','self','super','dyn','unsafe','async','await','where','const','static'
+			]);
+			const type = wordsRE([
+				'u8','u16','u32','u64','u128','i8','i16','i32','i64','i128','usize','isize','bool','char','str','String','Vec',
+				'Option','Result','Box','Rc','Arc','Self'
+			]);
+			const rustRaw = `(?<str>r(#{0,5})"(?:[\\s\\S]*?)"\\2)`; // r"..." r#"... "# ecc. fino a 5 #
+			const lifetime = `(?<type>'[A-Za-z_][A-Za-z0-9_]*)`;
+			const macroId = `(?<kw>[a-z_][a-z0-9_]*)(?=!)`; // foo! macro
+			const re = new RegExp(
+				[
+					rustRaw, strGeneric,
+					mlCommentC, slCommentC,
+					lifetime,
+					number,
+					macroId,
+					`(?<kw>${kw})`,
+					`(?<type>${type})`,
+					fnCall,
+					punct
+				].join('|'),
+				'gmi'
+			);
+			return re;
+		}
+
+		if (cfg.lang === 'java'){
+			const kw = wordsRE([
+				'public','private','protected','class','interface','enum','extends','implements','package','import','new','return',
+				'if','else','for','while','do','switch','case','break','continue','try','catch','finally','throw','throws',
+				'this','super','static','final','abstract','volatile','transient','synchronized','instanceof'
+			]);
+			const type = wordsRE([
+				'void','int','long','double','float','boolean','char','byte','short','String','List','Map','Set','ArrayList','HashMap'
+			]);
+			const re = new RegExp(
+				[
+					strGeneric,
+					mlCommentC, slCommentC,
+					number,
+					`(?<kw>${kw})`,
+					`(?<type>${type})`,
+					fnCall,
+					punct
+				].join('|'),
+				'gmi'
+			);
+			return re;
+		}
+
+		if (cfg.lang === 'sql'){
+			const kw = wordsRE([
+				'SELECT','FROM','WHERE','INSERT','INTO','VALUES','UPDATE','SET','DELETE','CREATE','TABLE','PRIMARY','KEY','FOREIGN',
+				'NOT','NULL','JOIN','LEFT','RIGHT','INNER','OUTER','ON','AND','OR','ORDER','BY','GROUP','HAVING','LIMIT','OFFSET',
+				'AS','DISTINCT','UNION','ALL','ALTER','ADD','DROP','INDEX'
+			]);
+			const type = wordsRE([
+				'INT','INTEGER','SERIAL','BIGINT','SMALLINT','DECIMAL','NUMERIC','REAL','DOUBLE','PRECISION','BOOLEAN','TEXT','VARCHAR',
+				'CHAR','DATE','TIMESTAMP','TIME','JSON','UUID'
+			]);
+			const strSQL = `(?<str>'(?:''|[^'])*')`; // '' = escape
+			const re = new RegExp(
+				[
+					strSQL, strGeneric,
+					mlCommentC, slCommentSQL,
+					number,
+					`(?<kw>${kw})`,
+					`(?<type>${type})`,
+					fnCall,
+					punct
+				].join('|'),
+				'gmi'
+			);
+			return re;
+		}
+
+		if (cfg.lang === 'asm'){ // x86
+			const kw = wordsRE([
+				'mov','lea','push','pop','call','ret','jmp','je','jne','jg','jl','jge','jle','cmp','test',
+				'add','sub','mul','imul','div','idiv','and','or','xor','shl','shr','inc','dec','nop',
+				'int','sysenter','syscall'
+			]);
+			const regs = `(?<type>\\b(?:[re]?(?:ax|bx|cx|dx|si|di|sp|bp)|r1[0-5]|r[8-9]|[xy]mm\\d+)\\b)`;
+			const label = `(?<fn>^[A-Za-z_][A-Za-z0-9_]*)(?=:)`;
+			const slCommentAsm = `(?<comment>;[^\\n]*)`;
+			const re = new RegExp(
+				[
+					strGeneric,
+					slCommentAsm,
+					regs,
+					number,
+					label,
+					`(?<kw>${kw})`,
+					fnCall, // per eventuali macro style
+					punct
+				].join('|'),
+				'gmi'
+			);
+			return re;
+		}
+
+		// Fallback generico
+		const re = new RegExp([strGeneric, mlCommentC, slCommentC, slCommentHash, slCommentSQL, number, fnCall, punct].join('|'), 'gmi');
+		return re;
+	}
+
+	function highlight(text, mode){
+		if (!text) return '';
+		const lang = ({py:'python', rust:'rust', java:'java', sql:'sql', asm:'asm'})[mode] || 'generic';
+		const re = buildLexer({lang});
+
+		let out = '';
+		let lastIndex = 0;
+
+		// Itera i match e costruisce l’HTML mantenendo l’escape
+		text.replace(re, (m, _1, _2, _3, _4, _5, _6, _7, _8, _9, offset, _str, groups) => {
+			// testo "plain" fino al match
+			out += esc(text.slice(lastIndex, offset));
+
+			// quale gruppo ha matchato?
+			let cls = null;
+			if (groups){
+				if (groups.comment) cls = 'comment';
+					else if (groups.str) cls = 'str';
+						else if (groups.type) cls = 'type';
+							else if (groups.kw) cls = 'kw';
+								else if (groups.fn) cls = 'fn';
+									else if (groups.num) cls = 'num';
+										else if (groups.punct) cls = 'punct';
+			}
+			if (cls){
+				out += `<span class="${cls}">` + esc(m) + `</span>`;
+			} else {
+				out += esc(m);
+			}
+
+			lastIndex = offset + m.length;
+			return m;
+		});
+
+		// resto finale
+		out += esc(text.slice(lastIndex));
+		return out;
+	}
+
+	// === Render incrementale + rAF ===
+	let lastRenderedPtr = 0;   // quanto è già stato “dipinto”
+	let renderRAF = 0;
+
+	function getLang(){
+		// aggiorna l’ID qui sotto con quello reale del tuo select della lingua
+		const v = (document.getElementById('modeSelect')?.value || '').toLowerCase();
+		if (v.includes('python')) return 'py';
+		if (v.includes('rust'))   return 'rust';
+		if (v.includes('java'))   return 'java';
+		if (v.includes('sql'))    return 'sql';
+		if (v.includes('asm') || v.includes('x86')) return 'asm';
+		return 'generic';
+	}
+
+	function render(force = false){
+		if (!force && renderRAF) return;
+		if (force) { 
+			flushRender(); 
+			return; 
+		}
+		renderRAF = requestAnimationFrame(flushRender);
+	}
+
+	function flushRender(){
+		renderRAF = 0;
+		const lang = getLang();
+
+		// Se abbiamo riavvolto/cancellato, ricostruisci da zero fino a ptr
+		if (ptr < lastRenderedPtr || (lastRenderedPtr === 0 && screen.innerHTML === '')) {
 			screen.innerHTML = highlight(rawText.slice(0, ptr), lang);
 			lastRenderedPtr = ptr;
 		} else {
@@ -2773,24 +2772,24 @@ function hex(n,len=12){ return '0x' + n.toString(16).padStart(len,'0'); }
 function randByte(){ return Math.floor(Math.random()*256); }
 function randWord(){ return Array.from({length:8}, ()=>randByte()); }
 function renderStack(){
-  // mantieni 10-12 righe
-  const max = 12;
-  while (stackLines.length>max) stackLines.shift();
-  const el = document.getElementById('stackView');
-  if (!el) return;
-  el.textContent = stackLines.join('\n');
+	// mantieni 10-12 righe
+	const max = 12;
+	while (stackLines.length>max) stackLines.shift();
+	const el = document.getElementById('stackView');
+	if (!el) return;
+	el.textContent = stackLines.join('\n');
 }
 
 function pushStackRow(){
-  // una riga = indirizzo crescente e 8 byte + commento registro random
-  const bytes = randWord();
-  const addr = hex(spAddr, 12);
-  const hexs = bytes.map(b=>b.toString(16).padStart(2,'0')).join(' ');
-  const regs = ['rax','rbx','rcx','rdx','rsi','rdi','rbp','rip'];
-  const comment = regs[Math.floor(Math.random()*regs.length)];
-  stackLines.push(`${addr}  ${hexs}   ; ${comment}`);
-  spAddr += 0x10; // avanza
-  renderStack();
+	// una riga = indirizzo crescente e 8 byte + commento registro random
+	const bytes = randWord();
+	const addr = hex(spAddr, 12);
+	const hexs = bytes.map(b=>b.toString(16).padStart(2,'0')).join(' ');
+	const regs = ['rax','rbx','rcx','rdx','rsi','rdi','rbp','rip'];
+	const comment = regs[Math.floor(Math.random()*regs.length)];
+	stackLines.push(`${addr}  ${hexs}   ; ${comment}`);
+	spAddr += 0x10; // avanza
+	renderStack();
 }
 
 // canvases
@@ -2799,144 +2798,144 @@ const $memC = document.getElementById('memChart');
 const $netC = document.getElementById('netChart');
 
 function rndWalk(v, min, max, step=0.05){
-  v += (Math.random()*2 - 1) * step;
-  if (v < min) v = min + (min - v)*0.2;
-  if (v > max) v = max - (v - max)*0.2;
-  return v;
+	v += (Math.random()*2 - 1) * step;
+	if (v < min) v = min + (min - v)*0.2;
+	if (v > max) v = max - (v - max)*0.2;
+	return v;
 }
 function push(buf, val){ buf.push(val); if (buf.length>BUF) buf.shift(); }
 
 function drawLine(ctx, data, color){
-  const {width, height} = ctx.canvas;
-  ctx.clearRect(0,0,width,height);
-  // grid
-  ctx.globalAlpha = 0.35;
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  ctx.lineWidth = 1;
-  for(let i=1;i<4;i++){
-    const y = (height/4)*i + .5;
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke();
-  }
-  // line
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  for(let i=0;i<data.length;i++){
-    const x = (i/(data.length-1)) * (width-2) + 1;
-    const y = height - (data[i] * (height-2)) - 1;
-    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-  }
-  ctx.stroke();
+	const {width, height} = ctx.canvas;
+	ctx.clearRect(0,0,width,height);
+	// grid
+	ctx.globalAlpha = 0.35;
+	ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+	ctx.lineWidth = 1;
+	for(let i=1;i<4;i++){
+		const y = (height/4)*i + .5;
+		ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke();
+	}
+	// line
+	ctx.globalAlpha = 1;
+	ctx.strokeStyle = color;
+	ctx.lineWidth = 1.5;
+	ctx.beginPath();
+	for(let i=0;i<data.length;i++){
+		const x = (i/(data.length-1)) * (width-2) + 1;
+		const y = height - (data[i] * (height-2)) - 1;
+		if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+	}
+	ctx.stroke();
 }
 
 function drawMem(ctx, usedGB, cacheGB){
-  const {width, height} = ctx.canvas;
-  ctx.clearRect(0,0,width,height);
-  const usedNorm = usedGB.map(v => v / memTotalGB);
-  const cacheNorm = cacheGB.map(v => v / memTotalGB);
-  // grid
-  ctx.globalAlpha = 0.35;
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  ctx.lineWidth = 1;
-  for(let i=1;i<4;i++){
-    const y = (height/4)*i + .5;
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke();
-  }
-  // cache
-  ctx.globalAlpha = 0.9;
-  ctx.strokeStyle = '#55ccff';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  for(let i=0;i<cacheNorm.length;i++){
-    const x = (i/(cacheNorm.length-1))*(width-2)+1;
-    const y = height - (cacheNorm[i]*(height-2)) - 1;
-    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-  }
-  ctx.stroke();
-  // used
-  ctx.strokeStyle = '#39ff14';
-  ctx.beginPath();
-  for(let i=0;i<usedNorm.length;i++){
-    const x = (i/(usedNorm.length-1))*(width-2)+1;
-    const y = height - (usedNorm[i]*(height-2)) - 1;
-    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-  }
-  ctx.stroke();
+	const {width, height} = ctx.canvas;
+	ctx.clearRect(0,0,width,height);
+	const usedNorm = usedGB.map(v => v / memTotalGB);
+	const cacheNorm = cacheGB.map(v => v / memTotalGB);
+	// grid
+	ctx.globalAlpha = 0.35;
+	ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+	ctx.lineWidth = 1;
+	for(let i=1;i<4;i++){
+		const y = (height/4)*i + .5;
+		ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke();
+	}
+	// cache
+	ctx.globalAlpha = 0.9;
+	ctx.strokeStyle = '#55ccff';
+	ctx.lineWidth = 1.2;
+	ctx.beginPath();
+	for(let i=0;i<cacheNorm.length;i++){
+		const x = (i/(cacheNorm.length-1))*(width-2)+1;
+		const y = height - (cacheNorm[i]*(height-2)) - 1;
+		if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+	}
+	ctx.stroke();
+	// used
+	ctx.strokeStyle = '#39ff14';
+	ctx.beginPath();
+	for(let i=0;i<usedNorm.length;i++){
+		const x = (i/(usedNorm.length-1))*(width-2)+1;
+		const y = height - (usedNorm[i]*(height-2)) - 1;
+		if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+	}
+	ctx.stroke();
 }
 
 function fmtUptime(ms){
-  const s = Math.floor(ms/1000);
-  const d = Math.floor(s/86400);
-  const h = String(Math.floor((s%86400)/3600)).padStart(2,'0');
-  const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
-  const ss = String(s%60).padStart(2,'0');
-  return `${d}d ${h}:${m}:${ss}`;
+	const s = Math.floor(ms/1000);
+	const d = Math.floor(s/86400);
+	const h = String(Math.floor((s%86400)/3600)).padStart(2,'0');
+	const m = String(Math.floor((s%3600)/60)).padStart(2,'0');
+	const ss = String(s%60).padStart(2,'0');
+	return `${d}d ${h}:${m}:${ss}`;
 }
 
 function tickStats(){
-  // CPU (0..1)
-  const lastCpu = cpuData[cpuData.length-1];
-  const cpu = rndWalk(lastCpu, 0.05, 0.95, 0.08);
-  push(cpuData, cpu);
+	// CPU (0..1)
+	const lastCpu = cpuData[cpuData.length-1];
+	const cpu = rndWalk(lastCpu, 0.05, 0.95, 0.08);
+	push(cpuData, cpu);
 
-  // Memoria
-  const lastU = memUsed[memUsed.length-1];
-  const lastC = memCache[memCache.length-1];
-  const u = rndWalk(lastU, 1.4, 6.6, 0.18);
-  const c = rndWalk(lastC, 0.4, 2.4, 0.10);
-  push(memUsed, u); push(memCache, c);
+	// Memoria
+	const lastU = memUsed[memUsed.length-1];
+	const lastC = memCache[memCache.length-1];
+	const u = rndWalk(lastU, 1.4, 6.6, 0.18);
+	const c = rndWalk(lastC, 0.4, 2.4, 0.10);
+	push(memUsed, u); push(memCache, c);
 
-  // Rete
-  const lastUp = netUp[netUp.length-1];
-  const lastDn = netDown[netDown.length-1];
-  const up = rndWalk(lastUp, 0.0, 3.0, 0.35);
-  const dn = rndWalk(lastDn, 0.0, 6.0, 0.55);
-  push(netUp, up); push(netDown, dn);
+	// Rete
+	const lastUp = netUp[netUp.length-1];
+	const lastDn = netDown[netDown.length-1];
+	const up = rndWalk(lastUp, 0.0, 3.0, 0.35);
+	const dn = rndWalk(lastDn, 0.0, 6.0, 0.55);
+	push(netUp, up); push(netDown, dn);
 
-  // Stack line
-  pushStackRow();
+	// Stack line
+	pushStackRow();
 
-  // Disegno
-  drawLine($cpuC.getContext('2d'), cpuData, '#39ff14');
-  drawMem($memC.getContext('2d'), memUsed, memCache);
-  const netSum = netDown.map((v,i)=> (v+netUp[i])/10);
-  drawLine($netC.getContext('2d'), netSum, '#7ee0ff');
+	// Disegno
+	drawLine($cpuC.getContext('2d'), cpuData, '#39ff14');
+	drawMem($memC.getContext('2d'), memUsed, memCache);
+	const netSum = netDown.map((v,i)=> (v+netUp[i])/10);
+	drawLine($netC.getContext('2d'), netSum, '#7ee0ff');
 
-  // Labels
-  document.getElementById('cpuNow').textContent = cpu.toFixed(2);
-  const avg1 = cpuData.slice(-60).reduce((a,b)=>a+b,0)/Math.min(60,cpuData.length);
-  const avg5 = cpuData.slice(-150).reduce((a,b)=>a+b,0)/Math.min(150,cpuData.length);
-  const avg15 = cpuData.reduce((a,b)=>a+b,0)/cpuData.length;
-  document.getElementById('cpuAvg').textContent = `${avg1.toFixed(2)} / ${avg5.toFixed(2)} / ${avg15.toFixed(2)}`;
+	// Labels
+	document.getElementById('cpuNow').textContent = cpu.toFixed(2);
+	const avg1 = cpuData.slice(-60).reduce((a,b)=>a+b,0)/Math.min(60,cpuData.length);
+	const avg5 = cpuData.slice(-150).reduce((a,b)=>a+b,0)/Math.min(150,cpuData.length);
+	const avg15 = cpuData.reduce((a,b)=>a+b,0)/cpuData.length;
+	document.getElementById('cpuAvg').textContent = `${avg1.toFixed(2)} / ${avg5.toFixed(2)} / ${avg15.toFixed(2)}`;
 
-  document.getElementById('memNow').textContent = `${u.toFixed(1)} / ${memTotalGB.toFixed(1)} GB`;
-  const free = Math.max(0, memTotalGB - u - c);
-  document.getElementById('memBreak').textContent = `${u.toFixed(1)} used • ${c.toFixed(1)} cache • ${free.toFixed(1)} free`;
+	document.getElementById('memNow').textContent = `${u.toFixed(1)} / ${memTotalGB.toFixed(1)} GB`;
+	const free = Math.max(0, memTotalGB - u - c);
+	document.getElementById('memBreak').textContent = `${u.toFixed(1)} used • ${c.toFixed(1)} cache • ${free.toFixed(1)} free`;
 
-  document.getElementById('netNow').textContent = `↑ ${up.toFixed(1)} MB/s • ↓ ${dn.toFixed(1)} MB/s`;
-  document.getElementById('uptimeLbl').textContent = fmtUptime(Date.now() - startedAt);
+	document.getElementById('netNow').textContent = `↑ ${up.toFixed(1)} MB/s • ↓ ${dn.toFixed(1)} MB/s`;
+	document.getElementById('uptimeLbl').textContent = fmtUptime(Date.now() - startedAt);
 }
 
 function startStats(){ if (!statsTick){ tickStats(); statsTick = setInterval(tickStats, 250); } }
 function stopStats(){ if (statsTick){ clearInterval(statsTick); statsTick = null; } }
 
 function toggleStats(force){
-  const next = typeof force === 'boolean' ? force : !statsOn;
-  statsOn = next;
-  document.body.classList.toggle('stats-on', statsOn);
-  if (statsOn && document.body.classList.contains('clean')) startStats();
-  else stopStats();
+	const next = typeof force === 'boolean' ? force : !statsOn;
+	statsOn = next;
+	document.body.classList.toggle('stats-on', statsOn);
+	if (statsOn && document.body.classList.contains('clean')) startStats();
+		else stopStats();
 }
 
 /* Uscita dalla Clean: spegni stats */
 document.addEventListener('fullscreenchange', () => {
-  if (!document.fullscreenElement) toggleStats(false);
+	if (!document.fullscreenElement) toggleStats(false);
 });
 
 /* Se hai una toggleCleanMode(on), assicurati di spegnere stats in off:
    if (!on) toggleStats(false); */
 
-</script>
+		</script>
 	</body>
 </html>
