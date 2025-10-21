@@ -2212,6 +2212,25 @@ syscall
 		}
 		if (ev.key === 'F12'){ return; }
 
+		// Backspace / Delete = Remove 1 char
+		if (ev.key === 'Backspace' || ev.key === 'Delete') {
+			ev.preventDefault();
+
+			// ferma eventuale burst di micro-typing
+			if (typeof burstTimer !== 'undefined' && burstTimer) {
+				clearInterval(burstTimer);
+				burstTimer = null;
+			}
+
+			if (ptr > 0) {
+				ptr -= 1;                 // “cancella” un carattere
+				// forza il render completo perché stiamo andando indietro
+				if (typeof render === 'function') render(true);
+				try { playKeySound?.(); } catch {}
+			}
+			return;
+		}
+
 		// ESC = Exit clean mode / clear board
 		if (ev.key === 'Escape'){
 			if (cleanMode){                // esci dal clean se attivo
