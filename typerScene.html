@@ -1483,44 +1483,46 @@ syscall
 	function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 	// Costruisce liste -> pattern \b(?:A|B|C)\b
-	function wordsRE(list){ return "\\b(?:" + list.join("|").replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&") + ")\\b"; }
+	function wordsRE(words){
+		// Escape any regex meta in words (safe even if not needed)
+		const escaped = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+		// IMPORTANT: join with '|' (NOT '\|')
+		return `\\b(?:${escaped.join('|')})\\b`;
+	}
+
+	function normLang(l){
+		const s = (l||'').toLowerCase();
+		if (s === 'py' || s === 'python') return 'python';
+		if (s === 'rs' || s === 'rust')   return 'rust';
+		if (s === 'asm' || s.includes('x86')) return 'asm';
+		return s; // 'java', 'sql', 'generic', etc.
+	}
 
 	// Lexer per-lingua (pattern nominati). Ordine: string|comment -> specifici -> numeri/fn/kw/type -> punct
 	function buildLexer(cfg){
-		// Patterns comuni
-		const strGeneric = `(?<str>"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*')`;
-		const mlCommentC = `(?<comment>/\\*[\\s\\S]*?\\*/)`;     // C/Java/Rust/SQL
-		const slCommentC = `(?<comment>//[^\\n]*)`;               // C/Java/Rust
-		const slCommentHash = `(?<comment>#[^\\n]*)`;             // Python
-		const slCommentSQL = `(?<comment>--[^\\n]*)`;             // SQL
-		const number = `(?<num>\\b0x[\\da-fA-F]+\\b|\\b\\d+(?:\\.\\d+)?\\b)`;
-		const punct = `(?<punct>[{}()[\\];.,:+\\-/*%<>=!?&|^~])`;
-		const fnCall = `(?<fn>[A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()`; // solo l’identificatore
+		const lang = normLang(cfg.lang);
+		// Common fragments
+		const strGeneric   = `(?<str>"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*')`;
+		const mlCommentC   = `(?<comment>/\\*[\\s\\S]*?\\*/)`;
+		const slCommentC   = `(?<comment>//[^\\n]*)`;
+		const slCommentHash= `(?<comment>#[^\\n]*)`;
+		const slCommentSQL = `(?<comment>--[^\\n]*)`;
+		const number       = `(?<num>\\b0x[\\da-fA-F]+\\b|\\b\\d+(?:\\.\\d+)?\\b)`;
+		const punct        = `(?<punct>[{}()[\\];.,:+\\-/*%<>=!?&|^~])`;
+		const fnCall       = `(?<fn>[A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()`;
 
-		// Merge specifici per lingua
-		if (cfg.lang === 'python'){
+		if (lang === 'python'){
 			const kw = wordsRE([
 				'def','class','return','if','elif','else','for','while','import','from','as','with','try','except','finally',
 				'raise','pass','lambda','yield','del','global','nonlocal','assert','async','await','in','is','and','or','not'
 			]);
 			const type = wordsRE(['int','float','bool','str','list','tuple','dict','set','None','True','False','bytes','range','object']);
 			const triple = `(?<str>'''[\\s\\S]*?'''|"""[\\s\\S]*?""")`;
-			const re = new RegExp(
-				[
-					triple, strGeneric,
-					slCommentHash,
-					number,
-					`(?<kw>${kw})`,
-					`(?<type>${type})`,
-					fnCall,
-					punct
-				].join('|'),
-				'gmi'
-			);
-			return re;
+			// Python: case-sensitive → 'gm' (not 'i')
+			return new RegExp([triple, strGeneric, slCommentHash, number, `(?<kw>${kw})`, `(?<type>${type})`, fnCall, punct].join('|'), 'gm');
 		}
 
-		if (cfg.lang === 'rust'){
+		if (lang === 'rust'){
 			const kw = wordsRE([
 				'fn','let','mut','pub','crate','mod','use','impl','trait','struct','enum','match','if','else','loop','while','for',
 				'return','move','ref','self','super','dyn','unsafe','async','await','where','const','static'
@@ -1529,27 +1531,14 @@ syscall
 				'u8','u16','u32','u64','u128','i8','i16','i32','i64','i128','usize','isize','bool','char','str','String','Vec',
 				'Option','Result','Box','Rc','Arc','Self'
 			]);
-			const rustRaw = `(?<str>r(#{0,5})"(?:[\\s\\S]*?)"\\2)`; // r"..." r#"... "# ecc. fino a 5 #
+			const rustRaw  = `(?<str>r(#{0,5})"(?:[\\s\\S]*?)"\\2)`; // r"..." / r#"..."
 			const lifetime = `(?<type>'[A-Za-z_][A-Za-z0-9_]*)`;
-			const macroId = `(?<kw>[a-z_][a-z0-9_]*)(?=!)`; // foo! macro
-			const re = new RegExp(
-				[
-					rustRaw, strGeneric,
-					mlCommentC, slCommentC,
-					lifetime,
-					number,
-					macroId,
-					`(?<kw>${kw})`,
-					`(?<type>${type})`,
-					fnCall,
-					punct
-				].join('|'),
-				'gmi'
-			);
-			return re;
+			const macroId  = `(?<kw>[a-z_][a-z0-9_]*)(?=!)`;
+			// Rust: case-sensitive → 'gm'
+			return new RegExp([rustRaw, strGeneric, mlCommentC, slCommentC, lifetime, number, macroId, `(?<kw>${kw})`, `(?<type>${type})`, fnCall, punct].join('|'), 'gm');
 		}
 
-		if (cfg.lang === 'java'){
+		if (lang === 'java'){
 			const kw = wordsRE([
 				'public','private','protected','class','interface','enum','extends','implements','package','import','new','return',
 				'if','else','for','while','do','switch','case','break','continue','try','catch','finally','throw','throws',
@@ -1558,22 +1547,11 @@ syscall
 			const type = wordsRE([
 				'void','int','long','double','float','boolean','char','byte','short','String','List','Map','Set','ArrayList','HashMap'
 			]);
-			const re = new RegExp(
-				[
-					strGeneric,
-					mlCommentC, slCommentC,
-					number,
-					`(?<kw>${kw})`,
-					`(?<type>${type})`,
-					fnCall,
-					punct
-				].join('|'),
-				'gmi'
-			);
-			return re;
+			// Java: case-sensitive → 'gm'
+			return new RegExp([strGeneric, mlCommentC, slCommentC, number, `(?<kw>${kw})`, `(?<type>${type})`, fnCall, punct].join('|'), 'gm');
 		}
 
-		if (cfg.lang === 'sql'){
+		if (lang === 'sql'){
 			const kw = wordsRE([
 				'SELECT','FROM','WHERE','INSERT','INTO','VALUES','UPDATE','SET','DELETE','CREATE','TABLE','PRIMARY','KEY','FOREIGN',
 				'NOT','NULL','JOIN','LEFT','RIGHT','INNER','OUTER','ON','AND','OR','ORDER','BY','GROUP','HAVING','LIMIT','OFFSET',
@@ -1583,87 +1561,62 @@ syscall
 				'INT','INTEGER','SERIAL','BIGINT','SMALLINT','DECIMAL','NUMERIC','REAL','DOUBLE','PRECISION','BOOLEAN','TEXT','VARCHAR',
 				'CHAR','DATE','TIMESTAMP','TIME','JSON','UUID'
 			]);
-			const strSQL = `(?<str>'(?:''|[^'])*')`; // '' = escape
-			const re = new RegExp(
-				[
-					strSQL, strGeneric,
-					mlCommentC, slCommentSQL,
-					number,
-					`(?<kw>${kw})`,
-					`(?<type>${type})`,
-					fnCall,
-					punct
-				].join('|'),
-				'gmi'
-			);
-			return re;
+			const strSQL = `(?<str>'(?:''|[^'])*')`;
+			// SQL: case-insensitive → 'gmi'
+			return new RegExp([strSQL, strGeneric, mlCommentC, slCommentSQL, number, `(?<kw>${kw})`, `(?<type>${type})`, fnCall, punct].join('|'), 'gmi');
 		}
 
-		if (cfg.lang === 'asm'){ // x86
+		if (lang === 'asm'){ // x86
 			const kw = wordsRE([
 				'mov','lea','push','pop','call','ret','jmp','je','jne','jg','jl','jge','jle','cmp','test',
 				'add','sub','mul','imul','div','idiv','and','or','xor','shl','shr','inc','dec','nop',
 				'int','sysenter','syscall'
 			]);
-			const regs = `(?<type>\\b(?:[re]?(?:ax|bx|cx|dx|si|di|sp|bp)|r1[0-5]|r[8-9]|[xy]mm\\d+)\\b)`;
-			const label = `(?<fn>^[A-Za-z_][A-Za-z0-9_]*)(?=:)`;
-			const slCommentAsm = `(?<comment>;[^\\n]*)`;
-			const re = new RegExp(
-				[
-					strGeneric,
-					slCommentAsm,
-					regs,
-					number,
-					label,
-					`(?<kw>${kw})`,
-					fnCall, // per eventuali macro style
-					punct
-				].join('|'),
-				'gmi'
-			);
-			return re;
+			const regs   = `(?<type>\\b(?:[re]?(?:ax|bx|cx|dx|si|di|sp|bp)|r1[0-5]|r[8-9]|[xy]mm\\d+)\\b)`;
+			const label  = `(?<fn>^[A-Za-z_][A-Za-z0-9_]*)(?=:)`;
+			const slAsm  = `(?<comment>;[^\\n]*)`;
+			// ASM: case-sensitive → 'gm'
+			return new RegExp([strGeneric, slAsm, regs, number, label, `(?<kw>${kw})`, fnCall, punct].join('|'), 'gm');
 		}
 
-		// Fallback generico
-		const re = new RegExp([strGeneric, mlCommentC, slCommentC, slCommentHash, slCommentSQL, number, fnCall, punct].join('|'), 'gmi');
-		return re;
+		// Fallback: case-sensitive
+		return new RegExp([strGeneric, mlCommentC, slCommentC, slCommentHash, slCommentSQL, number, fnCall, punct].join('|'), 'gm');
 	}
 
-	function highlight(text, mode){
-		if (!text) return '';
-		const lang = ({py:'python', rust:'rust', java:'java', sql:'sql', asm:'asm'})[mode] || 'generic';
-		const re = buildLexer({lang});
+	function highlight(text, lang){
+		const re = buildLexer({ lang });   // MUST have 'g' flag
+		re.lastIndex = 0;                  // reset state
 
 		let out = '';
 		let lastIndex = 0;
+		let m;
 
-		// Itera i match e costruisce l’HTML mantenendo l’escape
-		text.replace(re, (m, _1, _2, _3, _4, _5, _6, _7, _8, _9, offset, _str, groups) => {
-			// testo "plain" fino al match
-			out += esc(text.slice(lastIndex, offset));
+		while ((m = re.exec(text)) !== null) {
+			const groups = m.groups || {};
+			const start  = m.index;          // <-- reliable offset
+			const end    = re.lastIndex;     // end of match (with 'g')
 
-			// quale gruppo ha matchato?
+			// plain chunk before the match
+			out += esc(text.slice(lastIndex, start));
+
+			// decide CSS class
 			let cls = null;
-			if (groups){
-				if (groups.comment) cls = 'comment';
-					else if (groups.str) cls = 'str';
-						else if (groups.type) cls = 'type';
-							else if (groups.kw) cls = 'kw';
-								else if (groups.fn) cls = 'fn';
-									else if (groups.num) cls = 'num';
-										else if (groups.punct) cls = 'punct';
-			}
-			if (cls){
-				out += `<span class="${cls}">` + esc(m) + `</span>`;
-			} else {
-				out += esc(m);
-			}
+			if (groups.comment) cls = 'comment';
+				else if (groups.str)  cls = 'str';
+					else if (groups.type) cls = 'type';
+						else if (groups.kw)   cls = 'kw';
+							else if (groups.fn)   cls = 'fn';
+								else if (groups.num)  cls = 'num';
+									else if (groups.punct)cls = 'punct';
 
-			lastIndex = offset + m.length;
-			return m;
-		});
+			// emit token
+			const token = m[0];
+			out += cls ? `<span class="${cls}">${esc(token)}</span>` : esc(token);
 
-		// resto finale
+			lastIndex = end;
+		}
+
+		// trailing plain text
 		out += esc(text.slice(lastIndex));
 		return out;
 	}
@@ -1675,7 +1628,7 @@ syscall
 	function getLang(){
 		// aggiorna l’ID qui sotto con quello reale del tuo select della lingua
 		const v = (document.getElementById('modeSelect')?.value || '').toLowerCase();
-		if (v.includes('python')) return 'py';
+		if (v.includes('py')) return 'py';
 		if (v.includes('rust'))   return 'rust';
 		if (v.includes('java'))   return 'java';
 		if (v.includes('sql'))    return 'sql';
@@ -1692,26 +1645,46 @@ syscall
 		renderRAF = requestAnimationFrame(flushRender);
 	}
 
+	// --- helper: choose a safe start for tail repaint ---
+	function isBoundary(ch){ return /\s|[.,;:(){}\[\]]/.test(ch); }
+
+	function findSafeStart(text, fromIndex){
+		// repaint window to keep context (newline > other boundaries > hard cap)
+		const MAX_LOOKBACK = 1024; // tune if you have huge lines/comments
+		const floor = Math.max(0, fromIndex - MAX_LOOKBACK);
+
+		// 1) prefer last newline within the window
+		const nl = text.lastIndexOf('\n', fromIndex - 1);
+		if (nl >= floor) return nl + 1;
+
+		// 2) else last boundary like space/punct
+		for (let j = fromIndex - 1; j >= floor; j--){
+			if (isBoundary(text[j])) return j + 1;
+		}
+		// 3) fallback: repaint from the floor
+		return floor;
+	}
+
+	// --- patched flushRender: repaint tail with context ---
 	function flushRender(){
 		renderRAF = 0;
 		const lang = getLang();
 
-		// Se abbiamo riavvolto/cancellato, ricostruisci da zero fino a ptr
-		if (ptr < lastRenderedPtr || (lastRenderedPtr === 0 && screen.innerHTML === '')) {
+		// full rebuild if rewound/cleared
+		if (ptr < lastRenderedPtr || lastRenderedPtr === 0 || screen.innerHTML === '') {
 			screen.innerHTML = highlight(rawText.slice(0, ptr), lang);
 			lastRenderedPtr = ptr;
 		} else {
-			// Appendi solo il delta
-			const delta = rawText.slice(lastRenderedPtr, ptr);
-			if (delta) {
-				const html = highlight(delta, lang);
-				const frag = document.createRange().createContextualFragment(html);
-				screen.appendChild(frag);
-				lastRenderedPtr = ptr;
-			}
+			// repaint only the tail, but starting from a safe boundary behind lastRenderedPtr
+			const safeStart = findSafeStart(rawText, lastRenderedPtr);
+			const headHTML  = highlight(rawText.slice(0, safeStart), lang);
+			const tailHTML  = highlight(rawText.slice(safeStart, ptr), lang);
+			// simple & safe: rebuild innerHTML once (fast enough for typical sizes)
+			screen.innerHTML = headHTML + tailHTML;
+			lastRenderedPtr = ptr;
 		}
 
-		// Anchor/cursor (come già fai)
+		// keep your cursor anchor + auto-scroll logic
 		let anchor = document.getElementById('cursorAnchor');
 		if (anchor) anchor.remove();
 		anchor = document.createElement('span');
