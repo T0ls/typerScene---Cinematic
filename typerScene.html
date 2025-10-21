@@ -855,492 +855,492 @@
 
 	const examples = {
 		py: `import asyncio
-			import dataclasses
-			import hashlib
-			import json
-			import logging
-			import re
-			import sys
-			import time
-			from collections import deque
-			from dataclasses import dataclass, field
-			from typing import Deque, Dict, List, Set, Tuple
+import dataclasses
+import hashlib
+import json
+import logging
+import re
+import sys
+import time
+from collections import deque
+from dataclasses import dataclass, field
+from typing import Deque, Dict, List, Set, Tuple
 
-			try:
-			import aiohttp
-			except ImportError:
-			aiohttp = None  # placeholder if the lib is missing
+try:
+import aiohttp
+except ImportError:
+aiohttp = None  # placeholder if the lib is missing
 
-			LOG = logging.getLogger("matrixcrawler")
-			logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+LOG = logging.getLogger("matrixcrawler")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 
-			HREF_RE = re.compile(r'href=["\'](.*?)["\']', re.I)
+HREF_RE = re.compile(r'href=["\'](.*?)["\']', re.I)
 
-			@dataclass
-			class Page:
-			url: str
-			code: int
-			title: str
-			links: List[str] = field(default_factory=list)
-			fingerprint: str = ""
+@dataclass
+class Page:
+url: str
+code: int
+title: str
+links: List[str] = field(default_factory=list)
+fingerprint: str = ""
 
-			@dataclass
-			class LRU:
-			maxsize: int
-			q: Deque[str] = field(default_factory=deque)
-			s: Set[str] = field(default_factory=set)
+@dataclass
+class LRU:
+maxsize: int
+q: Deque[str] = field(default_factory=deque)
+s: Set[str] = field(default_factory=set)
 
-			def add(self, item: str) -> None:
-			if item in self.s:
-			return
-			self.q.append(item)
-			self.s.add(item)
-			if len(self.q) > self.maxsize:
-			old = self.q.popleft()
-			self.s.remove(old)
+def add(self, item: str) -> None:
+if item in self.s:
+return
+self.q.append(item)
+self.s.add(item)
+if len(self.q) > self.maxsize:
+old = self.q.popleft()
+self.s.remove(old)
 
-			def __contains__(self, item: str) -> bool:
-			return item in self.s
+def __contains__(self, item: str) -> bool:
+return item in self.s
 
-			class RateLimiter:
-			def __init__(self, rate_per_sec: float = 4.0):
-			self.period = 1.0 / max(0.001, rate_per_sec)
-			self._last = 0.0
+class RateLimiter:
+def __init__(self, rate_per_sec: float = 4.0):
+self.period = 1.0 / max(0.001, rate_per_sec)
+self._last = 0.0
 
-			async def wait(self):
-			now = time.perf_counter()
-			dt = now - self._last
-			if dt < self.period:
-			await asyncio.sleep(self.period - dt)
-			self._last = time.perf_counter()
+async def wait(self):
+now = time.perf_counter()
+dt = now - self._last
+if dt < self.period:
+await asyncio.sleep(self.period - dt)
+self._last = time.perf_counter()
 
-			class Crawler:
-			def __init__(self, seed: str, limit: int = 50, rate: float = 4.0):
-			self.seed = seed
-			self.limit = limit
-			self.rate = RateLimiter(rate)
-			self.visited = LRU(512)
-			self.q: Deque[str] = deque([seed])
-			self.done = 0
-			self.index: Dict[str, Page] = {}
+class Crawler:
+def __init__(self, seed: str, limit: int = 50, rate: float = 4.0):
+self.seed = seed
+self.limit = limit
+self.rate = RateLimiter(rate)
+self.visited = LRU(512)
+self.q: Deque[str] = deque([seed])
+self.done = 0
+self.index: Dict[str, Page] = {}
 
-			async def fetch(self, session, url: str) -> Tuple[int, str]:
-			await self.rate.wait()
-			try:
-			async with session.get(url, timeout=10) as resp:
-			txt = await resp.text(errors="ignore")
-			return resp.status, txt
-			except Exception as e:
-			LOG.warning("fetch error %s: %s", url, e)
-			return 0, ""
+async def fetch(self, session, url: str) -> Tuple[int, str]:
+await self.rate.wait()
+try:
+async with session.get(url, timeout=10) as resp:
+txt = await resp.text(errors="ignore")
+return resp.status, txt
+except Exception as e:
+LOG.warning("fetch error %s: %s", url, e)
+return 0, ""
 
-			def parse(self, url: str, text: str) -> Page:
-			title_match = re.search(r"<title>(.*?)</title>", text, re.I | re.S)
-			title = (title_match.group(1).strip() if title_match else url)[:120]
-			links = re.findall(r'href=["\'](.*?)["\']', text, flags=re.I)
-			links = [l for l in links if l.startswith("http")]
-			fp = hashlib.sha1(text[:5000].encode("utf-8", "ignore")).hexdigest()
-			return Page(url=url, code=200 if text else 0, title=title, links=links[:50], fingerprint=fp)
+def parse(self, url: str, text: str) -> Page:
+title_match = re.search(r"<title>(.*?)</title>", text, re.I | re.S)
+title = (title_match.group(1).strip() if title_match else url)[:120]
+links = re.findall(r'href=["\'](.*?)["\']', text, flags=re.I)
+links = [l for l in links if l.startswith("http")]
+fp = hashlib.sha1(text[:5000].encode("utf-8", "ignore")).hexdigest()
+return Page(url=url, code=200 if text else 0, title=title, links=links[:50], fingerprint=fp)
 
-			async def run(self) -> None:
-			if aiohttp is None:
-			LOG.error("aiohttp not installed — demo will skip network")
-			for i in range(min(10, self.limit)):
-			fake = f"https://example.org/{i}"
-			p = self.parse(fake, f"<html><title>Example {i}</title><a href='https://example.org/{i+1}'>n</a></html>")
-			self.index[p.url] = p
-			return
+async def run(self) -> None:
+if aiohttp is None:
+LOG.error("aiohttp not installed — demo will skip network")
+for i in range(min(10, self.limit)):
+fake = f"https://example.org/{i}"
+p = self.parse(fake, f"<html><title>Example {i}</title><a href='https://example.org/{i+1}'>n</a></html>")
+self.index[p.url] = p
+return
 
-			async with aiohttp.ClientSession(headers={"User-Agent": "MatrixCrawler/1.0"}) as session:
-			while self.q and self.done < self.limit:
-			url = self.q.popleft()
-			if url in self.visited:
-			continue
-			self.visited.add(url)
-			code, txt = await self.fetch(session, url)
-			page = self.parse(url, txt)
-			page.code = code
-			self.index[url] = page
-			self.done += 1
-			LOG.info("done=%s url=%s title=%s", self.done, url, page.title)
-			for l in page.links:
-			if l not in self.visited and len(self.q) < self.limit * 2:
-			self.q.append(l)
+async with aiohttp.ClientSession(headers={"User-Agent": "MatrixCrawler/1.0"}) as session:
+while self.q and self.done < self.limit:
+url = self.q.popleft()
+if url in self.visited:
+continue
+self.visited.add(url)
+code, txt = await self.fetch(session, url)
+page = self.parse(url, txt)
+page.code = code
+self.index[url] = page
+self.done += 1
+LOG.info("done=%s url=%s title=%s", self.done, url, page.title)
+for l in page.links:
+if l not in self.visited and len(self.q) < self.limit * 2:
+self.q.append(l)
 
-			def to_json(self) -> str:
-			return json.dumps({k: dataclasses.asdict(v) for k, v in self.index.items()}, indent=2)
+def to_json(self) -> str:
+return json.dumps({k: dataclasses.asdict(v) for k, v in self.index.items()}, indent=2)
 
-			async def amain(seed: str, limit: int):
-			crawler = Crawler(seed, limit=limit, rate=4.0)
-			await crawler.run()
-			print(crawler.to_json())
+async def amain(seed: str, limit: int):
+crawler = Crawler(seed, limit=limit, rate=4.0)
+await crawler.run()
+print(crawler.to_json())
 
-			def main(argv):
-			import argparse
-			p = argparse.ArgumentParser()
-			p.add_argument("--seed", default="https://example.org")
-			p.add_argument("--max-pages", type=int, default=40)
-			a = p.parse_args(argv)
-			asyncio.run(amain(a.seed, a.max_pages))
-			return 0
+def main(argv):
+import argparse
+p = argparse.ArgumentParser()
+p.add_argument("--seed", default="https://example.org")
+p.add_argument("--max-pages", type=int, default=40)
+a = p.parse_args(argv)
+asyncio.run(amain(a.seed, a.max_pages))
+return 0
 
-			if __name__ == "__main__":
-			raise SystemExit(main(sys.argv[1:]))
-			`,
+if __name__ == "__main__":
+raise SystemExit(main(sys.argv[1:]))
+`,
 		rust: `use std::{collections::VecDeque, time::Duration};
-			use clap::Parser;
-			use tokio::{fs::File, io::{AsyncBufReadExt, BufReader}, time::sleep};
-			use serde::Serialize;
+use clap::Parser;
+use tokio::{fs::File, io::{AsyncBufReadExt, BufReader}, time::sleep};
+use serde::Serialize;
 
-			#[derive(Parser, Debug)]
-			#[command(name = "logtail", version, about = "Async log monitor")]
-			struct Args{
-			/// Path to the log file
-			#[arg(short, long)]
-			file: String,
-			/// Max buffered lines
-			#[arg(long, default_value_t = 200)]
-			max: usize,
-			}
+#[derive(Parser, Debug)]
+#[command(name = "logtail", version, about = "Async log monitor")]
+struct Args{
+/// Path to the log file
+#[arg(short, long)]
+file: String,
+/// Max buffered lines
+#[arg(long, default_value_t = 200)]
+max: usize,
+}
 
-			#[derive(Debug, Serialize)]
-			struct Line{
-			idx: usize,
-			level: String,
-			text: String,
-			}
+#[derive(Debug, Serialize)]
+struct Line{
+idx: usize,
+level: String,
+text: String,
+}
 
-			fn classify(s: &str) -> String{
-			if s.contains("ERROR"){ "ERROR".into() }
-			else if s.contains("WARN"){ "WARN".into() }
-			else if s.contains("DEBUG"){ "DEBUG".into() }
-			else { "INFO".into() }
-			}
+fn classify(s: &str) -> String{
+if s.contains("ERROR"){ "ERROR".into() }
+else if s.contains("WARN"){ "WARN".into() }
+else if s.contains("DEBUG"){ "DEBUG".into() }
+else { "INFO".into() }
+}
 
-			#[tokio::main]
-			async fn main(){
-			let args = Args::parse();
-			let path = args.file;
-			let mut buf: VecDeque<Line> = VecDeque::new();
-			let mut idx: usize = 0;
+#[tokio::main]
+async fn main(){
+let args = Args::parse();
+let path = args.file;
+let mut buf: VecDeque<Line> = VecDeque::new();
+let mut idx: usize = 0;
 
-			loop {
-			match File::open(&path).await {
-			Ok(f) => {
-			let reader = BufReader::new(f);
-			let mut lines = reader.lines();
-			while let Ok(Some(l)) = lines.try_next_line().await {
-			let level = classify(&l);
-			let line = Line{ idx, level, text: l };
-			if buf.len() >= args.max { buf.pop_front(); }
-			buf.push_back(line);
-			idx += 1;
-			}
-			// fake render
-			println!("--- last {} lines ---", buf.len());
-			for ln in buf.iter().rev().take(15){
-			println!("[{:05}] {:<5} {}", ln.idx, ln.level, ln.text);
-			}
-			}
-			Err(e) => {
-			eprintln!("open error: {e}");
-			}
-			}
-			sleep(Duration::from_millis(600)).await;
-			}
-			}
-			`,
+loop {
+match File::open(&path).await {
+Ok(f) => {
+let reader = BufReader::new(f);
+let mut lines = reader.lines();
+while let Ok(Some(l)) = lines.try_next_line().await {
+let level = classify(&l);
+let line = Line{ idx, level, text: l };
+if buf.len() >= args.max { buf.pop_front(); }
+buf.push_back(line);
+idx += 1;
+}
+// fake render
+println!("--- last {} lines ---", buf.len());
+for ln in buf.iter().rev().take(15){
+println!("[{:05}] {:<5} {}", ln.idx, ln.level, ln.text);
+}
+}
+Err(e) => {
+eprintln!("open error: {e}");
+}
+}
+sleep(Duration::from_millis(600)).await;
+}
+}
+`,
 		java: `import java.io.Closeable;
-			import java.time.Instant;
-			import java.util.*;
-			import java.util.concurrent.*;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.*;
 
-			public final class MiniScheduler implements Closeable {
-			private final ScheduledExecutorService exec = Executors.newScheduledThreadPool(2);
-			private final Map<String, ScheduledFuture<?>> tasks = new ConcurrentHashMap<>();
+public final class MiniScheduler implements Closeable {
+private final ScheduledExecutorService exec = Executors.newScheduledThreadPool(2);
+private final Map<String, ScheduledFuture<?>> tasks = new ConcurrentHashMap<>();
 
-			public interface Job { void run() throws Exception; }
+public interface Job { void run() throws Exception; }
 
-			public String every(String name, long periodMs, Job job){
-			ScheduledFuture<?> f = exec.scheduleAtFixedRate(() -> {
-			try{
-			System.out.printf("%s RUN %s%n", Instant.now(), name);
-			job.run();
-			}catch(Exception e){
-			System.err.printf("%s ERR %s: %s%n", Instant.now(), name, e.getMessage());
-			}
-			}, periodMs, periodMs, TimeUnit.MILLISECONDS);
-			tasks.put(name, f);
-			return name;
-			}
+public String every(String name, long periodMs, Job job){
+ScheduledFuture<?> f = exec.scheduleAtFixedRate(() -> {
+try{
+System.out.printf("%s RUN %s%n", Instant.now(), name);
+job.run();
+}catch(Exception e){
+System.err.printf("%s ERR %s: %s%n", Instant.now(), name, e.getMessage());
+}
+}, periodMs, periodMs, TimeUnit.MILLISECONDS);
+tasks.put(name, f);
+return name;
+}
 
-			public void cancel(String name){
-			ScheduledFuture<?> f = tasks.remove(name);
-			if (f != null) f.cancel(false);
-			}
+public void cancel(String name){
+ScheduledFuture<?> f = tasks.remove(name);
+if (f != null) f.cancel(false);
+}
 
-			@Override public void close(){
-			exec.shutdown();
-			}
+@Override public void close(){
+exec.shutdown();
+}
 
-			// Demo
-			public static void main(String[] args) throws Exception {
-			try (MiniScheduler s = new MiniScheduler()){
-			s.every("heartbeat", 700, () -> System.out.println("tick"));
-			s.every("work", 1200, () -> {
-			Thread.sleep(100);
-			System.out.println("work done");
-			});
-			Thread.sleep(6000);
-			}
-			}
-			}
-			`,
+// Demo
+public static void main(String[] args) throws Exception {
+try (MiniScheduler s = new MiniScheduler()){
+s.every("heartbeat", 700, () -> System.out.println("tick"));
+s.every("work", 1200, () -> {
+Thread.sleep(100);
+System.out.println("work done");
+});
+Thread.sleep(6000);
+}
+}
+}
+`,
 		sql: `DROP TABLE IF EXISTS orders_items;
-			DROP TABLE IF EXISTS orders;
-			DROP TABLE IF EXISTS products;
-			DROP TABLE IF EXISTS customers;
-			DROP SCHEMA IF EXISTS audit CASCADE;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS customers;
+DROP SCHEMA IF EXISTS audit CASCADE;
 
-			CREATE TABLE customers (
-			id           SERIAL PRIMARY KEY,
-			created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-			email        TEXT NOT NULL UNIQUE,
-			full_name    TEXT NOT NULL,
-			country      TEXT NOT NULL,
-			is_vip       BOOLEAN NOT NULL DEFAULT FALSE
-			);
+CREATE TABLE customers (
+id           SERIAL PRIMARY KEY,
+created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+email        TEXT NOT NULL UNIQUE,
+full_name    TEXT NOT NULL,
+country      TEXT NOT NULL,
+is_vip       BOOLEAN NOT NULL DEFAULT FALSE
+);
 
-			CREATE TABLE products (
-			id           SERIAL PRIMARY KEY,
-			sku          TEXT NOT NULL UNIQUE,
-			name         TEXT NOT NULL,
-			unit_price   NUMERIC(12,2) NOT NULL CHECK (unit_price >= 0),
-			category     TEXT NOT NULL
-			);
+CREATE TABLE products (
+id           SERIAL PRIMARY KEY,
+sku          TEXT NOT NULL UNIQUE,
+name         TEXT NOT NULL,
+unit_price   NUMERIC(12,2) NOT NULL CHECK (unit_price >= 0),
+category     TEXT NOT NULL
+);
 
-			CREATE TABLE orders (
-			id           BIGSERIAL PRIMARY KEY,
-			created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-			customer_id  INT NOT NULL REFERENCES customers(id),
-			currency     TEXT NOT NULL DEFAULT 'USD',
-			status       TEXT NOT NULL CHECK (status IN ('NEW','PAID','SHIPPED','CANCELLED'))
-			);
+CREATE TABLE orders (
+id           BIGSERIAL PRIMARY KEY,
+created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+customer_id  INT NOT NULL REFERENCES customers(id),
+currency     TEXT NOT NULL DEFAULT 'USD',
+status       TEXT NOT NULL CHECK (status IN ('NEW','PAID','SHIPPED','CANCELLED'))
+);
 
-			CREATE TABLE orders_items (
-			order_id     BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-			product_id   INT NOT NULL REFERENCES products(id),
-			qty          INT NOT NULL CHECK (qty > 0),
-			unit_price   NUMERIC(12,2) NOT NULL CHECK (unit_price >= 0),
-			PRIMARY KEY (order_id, product_id)
-			);
+CREATE TABLE orders_items (
+order_id     BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+product_id   INT NOT NULL REFERENCES products(id),
+qty          INT NOT NULL CHECK (qty > 0),
+unit_price   NUMERIC(12,2) NOT NULL CHECK (unit_price >= 0),
+PRIMARY KEY (order_id, product_id)
+);
 
-			-- 2) Indexes
-			CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
-			CREATE INDEX IF NOT EXISTS idx_orders_created   ON orders(created_at);
-			CREATE INDEX IF NOT EXISTS idx_items_product    ON orders_items(product_id);
+-- 2) Indexes
+CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+CREATE INDEX IF NOT EXISTS idx_orders_created   ON orders(created_at);
+CREATE INDEX IF NOT EXISTS idx_items_product    ON orders_items(product_id);
 
-			-- 3) Sample data
-			INSERT INTO customers(email, full_name, country, is_vip) VALUES
-			('neo@example.com','Neo Anderson','US', true),
-			('trinity@example.com','Trinity','US', true),
-			('morpheus@example.com','Morpheus','US', true),
-			('smith@example.com','Agent Smith','US', false),
-			('ora@example.com','The Oracle','GR', true),
-			('mouse@example.com','Mouse','US', false),
-			('tank@example.com','Tank','US', false),
-			('dozer@example.com','Dozer','US', false);
+-- 3) Sample data
+INSERT INTO customers(email, full_name, country, is_vip) VALUES
+('neo@example.com','Neo Anderson','US', true),
+('trinity@example.com','Trinity','US', true),
+('morpheus@example.com','Morpheus','US', true),
+('smith@example.com','Agent Smith','US', false),
+('ora@example.com','The Oracle','GR', true),
+('mouse@example.com','Mouse','US', false),
+('tank@example.com','Tank','US', false),
+('dozer@example.com','Dozer','US', false);
 
-			INSERT INTO products(sku, name, unit_price, category) VALUES
-			('KB-001','Mechanical Keyboard', 129.90, 'Peripherals'),
-			('MS-010','Optical Mouse',        39.50, 'Peripherals'),
-			('MN-404','27 inch Monitor',     249.00, 'Displays'),
-			('HD-900','External SSD 2TB',    219.99, 'Storage'),
-			('CM-777','USB-C Cable',           9.99, 'Cables'),
-			('HS-110','Headset',              69.99, 'Audio');
+INSERT INTO products(sku, name, unit_price, category) VALUES
+('KB-001','Mechanical Keyboard', 129.90, 'Peripherals'),
+('MS-010','Optical Mouse',        39.50, 'Peripherals'),
+('MN-404','27 inch Monitor',     249.00, 'Displays'),
+('HD-900','External SSD 2TB',    219.99, 'Storage'),
+('CM-777','USB-C Cable',           9.99, 'Cables'),
+('HS-110','Headset',              69.99, 'Audio');
 
-			-- Orders
-			INSERT INTO orders(customer_id, currency, status, created_at) VALUES
-			(1,'USD','PAID',      now() - interval '3 days'),
-			(2,'USD','PAID',      now() - interval '2 days'),
-			(3,'USD','SHIPPED',   now() - interval '1 day'),
-			(1,'USD','CANCELLED', now() - interval '18 hours'),
-			(4,'USD','NEW',       now() - interval '2 hours');
+-- Orders
+INSERT INTO orders(customer_id, currency, status, created_at) VALUES
+(1,'USD','PAID',      now() - interval '3 days'),
+(2,'USD','PAID',      now() - interval '2 days'),
+(3,'USD','SHIPPED',   now() - interval '1 day'),
+(1,'USD','CANCELLED', now() - interval '18 hours'),
+(4,'USD','NEW',       now() - interval '2 hours');
 
-			-- Items
-			INSERT INTO orders_items(order_id, product_id, qty, unit_price) VALUES
-			(1,1,1,129.90),(1,2,2,39.50),
-			(2,3,1,249.00),(2,6,1,69.99),
-			(3,4,1,219.99),(3,5,3,9.99),
-			(4,6,2,69.99),
-			(5,5,5,9.99);
+-- Items
+INSERT INTO orders_items(order_id, product_id, qty, unit_price) VALUES
+(1,1,1,129.90),(1,2,2,39.50),
+(2,3,1,249.00),(2,6,1,69.99),
+(3,4,1,219.99),(3,5,3,9.99),
+(4,6,2,69.99),
+(5,5,5,9.99);
 
-			-- 4) Computed totals view
-			CREATE OR REPLACE VIEW v_order_totals AS
-			SELECT
-			o.id AS order_id,
-			o.customer_id,
-			o.status,
-			o.created_at,
-			SUM(oi.qty * oi.unit_price) AS subtotal,
-			CASE WHEN c.is_vip THEN 0.9 ELSE 1.0 END AS vip_multiplier,
-			ROUND(SUM(oi.qty * oi.unit_price) * (CASE WHEN c.is_vip THEN 0.9 ELSE 1.0 END), 2) AS total_after_vip
-			FROM orders o
-			JOIN orders_items oi ON oi.order_id = o.id
-			JOIN customers c ON c.id = o.customer_id
-			GROUP BY o.id, o.customer_id, o.status, o.created_at, c.is_vip;
+-- 4) Computed totals view
+CREATE OR REPLACE VIEW v_order_totals AS
+SELECT
+o.id AS order_id,
+o.customer_id,
+o.status,
+o.created_at,
+SUM(oi.qty * oi.unit_price) AS subtotal,
+CASE WHEN c.is_vip THEN 0.9 ELSE 1.0 END AS vip_multiplier,
+ROUND(SUM(oi.qty * oi.unit_price) * (CASE WHEN c.is_vip THEN 0.9 ELSE 1.0 END), 2) AS total_after_vip
+FROM orders o
+JOIN orders_items oi ON oi.order_id = o.id
+JOIN customers c ON c.id = o.customer_id
+GROUP BY o.id, o.customer_id, o.status, o.created_at, c.is_vip;
 
-			-- 5) Window functions — RFM-ish scoring
-			WITH spend AS (
-			SELECT customer_id, SUM(total_after_vip) AS spent
-			FROM v_order_totals
-			WHERE status IN ('PAID','SHIPPED')
-			GROUP BY customer_id
-			),
-			freq AS (
-			SELECT customer_id, COUNT(*) AS orders_count
-			FROM orders
-			WHERE status IN ('PAID','SHIPPED')
-			GROUP BY customer_id
-			),
-			recency AS (
-			SELECT customer_id, MIN(EXTRACT(EPOCH FROM (now() - created_at))/86400)::int AS days_since_first
-			FROM orders
-			WHERE status IN ('PAID','SHIPPED')
-			GROUP BY customer_id
-			)
-			SELECT
-			c.id, c.full_name,
-			COALESCE(s.spent,0) AS spent,
-			COALESCE(f.orders_count,0) AS orders_count,
-			COALESCE(r.days_since_first,9999) AS days_since_first,
-			NTILE(5) OVER (ORDER BY COALESCE(s.spent,0))          AS spend_tile,
-			NTILE(5) OVER (ORDER BY COALESCE(f.orders_count,0))   AS freq_tile,
-			NTILE(5) OVER (ORDER BY -COALESCE(r.days_since_first,9999)) AS recency_tile
-			FROM customers c
-			LEFT JOIN spend s ON s.customer_id = c.id
-			LEFT JOIN freq  f ON f.customer_id = c.id
-			LEFT JOIN recency r ON r.customer_id = c.id
-			ORDER BY spent DESC, orders_count DESC, c.id;
+-- 5) Window functions — RFM-ish scoring
+WITH spend AS (
+SELECT customer_id, SUM(total_after_vip) AS spent
+FROM v_order_totals
+WHERE status IN ('PAID','SHIPPED')
+GROUP BY customer_id
+),
+freq AS (
+SELECT customer_id, COUNT(*) AS orders_count
+FROM orders
+WHERE status IN ('PAID','SHIPPED')
+GROUP BY customer_id
+),
+recency AS (
+SELECT customer_id, MIN(EXTRACT(EPOCH FROM (now() - created_at))/86400)::int AS days_since_first
+FROM orders
+WHERE status IN ('PAID','SHIPPED')
+GROUP BY customer_id
+)
+SELECT
+c.id, c.full_name,
+COALESCE(s.spent,0) AS spent,
+COALESCE(f.orders_count,0) AS orders_count,
+COALESCE(r.days_since_first,9999) AS days_since_first,
+NTILE(5) OVER (ORDER BY COALESCE(s.spent,0))          AS spend_tile,
+NTILE(5) OVER (ORDER BY COALESCE(f.orders_count,0))   AS freq_tile,
+NTILE(5) OVER (ORDER BY -COALESCE(r.days_since_first,9999)) AS recency_tile
+FROM customers c
+LEFT JOIN spend s ON s.customer_id = c.id
+LEFT JOIN freq  f ON f.customer_id = c.id
+LEFT JOIN recency r ON r.customer_id = c.id
+ORDER BY spent DESC, orders_count DESC, c.id;
 
-			-- 6) CTE with rollups
-			WITH per_cat AS (
-			SELECT p.category, SUM(oi.qty * oi.unit_price) AS revenue
-			FROM orders_items oi JOIN products p ON p.id = oi.product_id
-			GROUP BY 1
-			)
-			SELECT category, revenue, ROUND(100*revenue/SUM(revenue) OVER (),2) AS pct
-			FROM per_cat
-			ORDER BY revenue DESC;
+-- 6) CTE with rollups
+WITH per_cat AS (
+SELECT p.category, SUM(oi.qty * oi.unit_price) AS revenue
+FROM orders_items oi JOIN products p ON p.id = oi.product_id
+GROUP BY 1
+)
+SELECT category, revenue, ROUND(100*revenue/SUM(revenue) OVER (),2) AS pct
+FROM per_cat
+ORDER BY revenue DESC;
 
-			-- 7) Audit schema: trigger example
-			CREATE SCHEMA IF NOT EXISTS audit;
+-- 7) Audit schema: trigger example
+CREATE SCHEMA IF NOT EXISTS audit;
 
-			CREATE TABLE audit.order_changes (
-			id BIGSERIAL PRIMARY KEY,
-			ts TIMESTAMPTZ NOT NULL DEFAULT now(),
-			order_id BIGINT NOT NULL,
-			old_status TEXT,
-			new_status TEXT
-			);
+CREATE TABLE audit.order_changes (
+id BIGSERIAL PRIMARY KEY,
+ts TIMESTAMPTZ NOT NULL DEFAULT now(),
+order_id BIGINT NOT NULL,
+old_status TEXT,
+new_status TEXT
+);
 
-			CREATE OR REPLACE FUNCTION audit.fn_order_status() RETURNS trigger AS $$
-			BEGIN
-			IF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
-			INSERT INTO audit.order_changes(order_id, old_status, new_status)
-			VALUES (NEW.id, OLD.status, NEW.status);
-			END IF;
-			RETURN NEW;
-			END;
-			$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION audit.fn_order_status() RETURNS trigger AS $$
+BEGIN
+IF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
+INSERT INTO audit.order_changes(order_id, old_status, new_status)
+VALUES (NEW.id, OLD.status, NEW.status);
+END IF;
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-			DROP TRIGGER IF EXISTS trg_order_status ON orders;
-			CREATE TRIGGER trg_order_status
-			AFTER UPDATE ON orders
-			FOR EACH ROW EXECUTE FUNCTION audit.fn_order_status();
+DROP TRIGGER IF EXISTS trg_order_status ON orders;
+CREATE TRIGGER trg_order_status
+AFTER UPDATE ON orders
+FOR EACH ROW EXECUTE FUNCTION audit.fn_order_status();
 
-			-- 8) Example updates to fire the trigger
-			UPDATE orders SET status='PAID' WHERE status='NEW';
-			UPDATE orders SET status='SHIPPED' WHERE status='PAID';
+-- 8) Example updates to fire the trigger
+UPDATE orders SET status='PAID' WHERE status='NEW';
+UPDATE orders SET status='SHIPPED' WHERE status='PAID';
 
-			-- 9) Show audit
-			SELECT * FROM audit.order_changes ORDER BY ts DESC;
+-- 9) Show audit
+SELECT * FROM audit.order_changes ORDER BY ts DESC;
 
-			-- 10) Parameterized report (simulated with CTE vars)
-			WITH params AS (SELECT 'US'::text AS country_filter)
-			SELECT o.id, c.full_name, v.subtotal, v.total_after_vip, o.status
-			FROM orders o
-			JOIN v_order_totals v ON v.order_id = o.id
-			JOIN customers c ON c.id = o.customer_id
-			JOIN params p ON p.country_filter = c.country
-			ORDER BY o.created_at DESC;
-			`,
+-- 10) Parameterized report (simulated with CTE vars)
+WITH params AS (SELECT 'US'::text AS country_filter)
+SELECT o.id, c.full_name, v.subtotal, v.total_after_vip, o.status
+FROM orders o
+JOIN v_order_totals v ON v.order_id = o.id
+JOIN customers c ON c.id = o.customer_id
+JOIN params p ON p.country_filter = c.country
+ORDER BY o.created_at DESC;
+`,
 		asm: `BITS 64
-			GLOBAL _start
+GLOBAL _start
 
-			section .data
-			banner:     db  0x1b,"[32m== MATRIX ==[0m",10
-			banner_len: equ $-banner
+section .data
+banner:     db  0x1b,"[32m== MATRIX ==[0m",10
+banner_len: equ $-banner
 
-			prompt:     db  "Input: ",0
-			prompt_len: equ $-prompt
+prompt:     db  "Input: ",0
+prompt_len: equ $-prompt
 
-			buf:        times 256 db 0
+buf:        times 256 db 0
 
-			section .text
-			_start:
-			; write banner
-			mov rax,1           ; sys_write
-			mov rdi,1
-			mov rsi,banner
-			mov rdx,banner_len
-			syscall
+section .text
+_start:
+; write banner
+mov rax,1           ; sys_write
+mov rdi,1
+mov rsi,banner
+mov rdx,banner_len
+syscall
 
-			; write prompt
-			mov rax,1
-			mov rdi,1
-			mov rsi,prompt
-			mov rdx,prompt_len
-			syscall
+; write prompt
+mov rax,1
+mov rdi,1
+mov rsi,prompt
+mov rdx,prompt_len
+syscall
 
-			; read into buf
-			mov rax,0           ; sys_read
-			mov rdi,0
-			mov rsi,buf
-			mov rdx,256
-			syscall             ; RAX = count
+; read into buf
+mov rax,0           ; sys_read
+mov rdi,0
+mov rsi,buf
+mov rdx,256
+syscall             ; RAX = count
 
-			; RAX contains count, set RCX = count-1 (ignore newline)
-			mov rcx, rax
-			dec rcx
+; RAX contains count, set RCX = count-1 (ignore newline)
+mov rcx, rax
+dec rcx
 
-			; Reverse in-place
-			xor r8, r8          ; i = 0
-			mov r9, rcx         ; j = n-1
-			.rev_loop:
-			cmp r8, r9
-			jge .rev_done
-			mov al, [buf + r8]
-			mov bl, [buf + r9]
-			mov [buf + r8], bl
-			mov [buf + r9], al
-			inc r8
-			dec r9
-			jmp .rev_loop
-			.rev_done:
+; Reverse in-place
+xor r8, r8          ; i = 0
+mov r9, rcx         ; j = n-1
+.rev_loop:
+cmp r8, r9
+jge .rev_done
+mov al, [buf + r8]
+mov bl, [buf + r9]
+mov [buf + r8], bl
+mov [buf + r9], al
+inc r8
+dec r9
+jmp .rev_loop
+.rev_done:
 
-			; write result
-			mov rax,1
-			mov rdi,1
-			mov rsi,buf
-			mov rdx,rcx
-			syscall
+; write result
+mov rax,1
+mov rdi,1
+mov rsi,buf
+mov rdx,rcx
+syscall
 
-			; exit(0)
-			mov rax,60
-			xor rdi, rdi
-			syscall
-			`,
+; exit(0)
+mov rax,60
+xor rdi, rdi
+syscall
+`,
 	};
 
 	// === Reset UI ai default quando ricarichi la pagina  ===
