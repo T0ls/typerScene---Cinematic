@@ -370,11 +370,11 @@
 		.clean header,.clean .controls,.clean .right,.clean .footer{ display:none !important }
 		.clean .preview{
 			border-radius:0 !important; padding:28px !important; box-shadow:none !important; border:0 !important;
-			width:100vw; height:100vh; overflow:auto hidden;
+			width:100vw; height:100vh; overflow:hidden auto;
 		}
 		.clean .screen-wrap{
 			min-height:100vh; max-height:100vh; display:flex; align-items:flex-start; justify-content:flex-start;
-			padding-top:28px; box-sizing:border-box; overflow:auto hidden;
+			padding-top:28px; box-sizing:border-box; overflow:hidden auto;
 		}
 		.clean #screen{ font-size:22px; padding-bottom:0 }
 		.clean .cursor{ height:26px; width:12px }
@@ -754,6 +754,10 @@
 
 					<div class="hotkey-list" style="margin-top:8px">
 						<div class="hotkey-item">
+							<span class="hotkey-key">F2</span>
+							<span class="hotkey-desc">Toggle auto type</span>
+						</div>
+						<div class="hotkey-item">
 							<span class="hotkey-key">F4</span>
 							<span class="hotkey-desc">Mute / Unmute sound</span>
 						</div>
@@ -831,6 +835,11 @@
 	const rewindSpeedRange = document.getElementById('rewindSpeedRange');
 	const rewindSpeedVal   = document.getElementById('rewindSpeedVal');
 
+	let autoTyping = false;
+	let autoTimer = null;
+
+	// Interval between typing ticks in ms (adjust to taste).
+	let autoIntervalMs = 40;
 
 	let rawText = '';
 	let ptr = 0;
@@ -848,7 +857,6 @@
 	let burstTimer = null;      // setInterval attivo durante il “micro-typing”
 	let burstLeft  = 0;         // quanti caratteri mancano nel burst corrente
 	let burstDelayMs = 12;   // ritardo tra un carattere e l’altro (default 12)
-
 
 	// mappa select → linguaggio
 	const modeMap = { py:'py', rust:'rust', java:'java', asm:'asm', sql:'sql' };
@@ -1473,11 +1481,53 @@ syscall
 		render();
 	}
 
+	function startAutoTyping() {
+		if (autoTyping) return;
+		autoTyping = true;
+		if (!rawText) loadExample(modeSelect.value);
+
+		autoTimer = setInterval(() => {
+			// Stop if we reached the end
+			if (ptr >= rawText.length) {
+				stopAutoTyping();
+				return;
+			}
+
+			// Type the next chunk; uses current `speed`
+			const ev = new KeyboardEvent('keydown', {
+				key: 'l',
+				code: 'KeyL',
+				keyCode: 18,    // legacy, ma utile per compatibilità
+				which: 18,      // legacy
+				bubbles: true,
+			});
+			type(ev);
+
+			// Safety: if we just finished, stop.
+			if (ptr >= rawText.length) {
+				stopAutoTyping();
+			}
+		}, autoIntervalMs);
+	}
+
+	function stopAutoTyping() {
+		if (!autoTyping) return;
+		autoTyping = false;
+		if (autoTimer) {
+			clearInterval(autoTimer);
+			autoTimer = null;
+		}
+	}
+
+	function toggleAutoTyping() {
+		if (autoTyping) stopAutoTyping();
+			else startAutoTyping();
+	}
+
 	/* =========================
 	Syntax Highlighter v2
-	Supporto: python, rust, java, sql, asm (x86)
+	Support: python, rust, java, sql, asm (x86)
 	Fallback: generic
-	Usa le classi .kw .type .str .num .comment .fn .punct
 	========================= */
 
 	function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1636,15 +1686,6 @@ syscall
 		return 'generic';
 	}
 
-	function render(force = false){
-		if (!force && renderRAF) return;
-		if (force) { 
-			flushRender(); 
-			return; 
-		}
-		renderRAF = requestAnimationFrame(flushRender);
-	}
-
 	// --- helper: choose a safe start for tail repaint ---
 	function isBoundary(ch){ return /\s|[.,;:(){}\[\]]/.test(ch); }
 
@@ -1665,7 +1706,15 @@ syscall
 		return floor;
 	}
 
-	// --- patched flushRender: repaint tail with context ---
+	function render(force = false){
+		if (!force && renderRAF) return;
+		if (force) { 
+			flushRender(); 
+			return; 
+		}
+		renderRAF = requestAnimationFrame(flushRender);
+	}
+
 	function flushRender(){
 		renderRAF = 0;
 		const lang = getLang();
@@ -2054,6 +2103,8 @@ syscall
 
 	// toggle clean mode
 	function toggleCleanMode(on){
+		// While auto-typing is on, ignore manual typing keys to avoid conflicts
+		if (autoTyping) return;
 		if (!on) toggleStats(false);
 		if (on){
 			const div = document.getElementById("bigBoy")
@@ -2098,7 +2149,13 @@ syscall
 		if (ev.key === 'Control'){ return; }
 
 		if (ev.key === 'F1'){ return; }
-		if (ev.key === 'F2'){ return; }
+		// F2 = Toggles auto typing
+		if (ev.key === 'F2'){
+			if (ev.repeat) return;         // avoid multiple toggles when holding the key
+			ev.preventDefault();
+			toggleAutoTyping();
+			return;
+		}
 		if (ev.key === 'F3'){ return; }
 		// F6 = mute / unmute
 		if (ev.key === 'F4'){
@@ -2191,6 +2248,7 @@ syscall
 			// ridisegna subito
 			(typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.();
 
+			hideOverlay?.();
 			ev.preventDefault();
 			return;
 		}
@@ -2201,11 +2259,14 @@ syscall
 			return;
 		}
 
+		type(ev);
 
 		ev.preventDefault();
 
 		if (!rawText) loadExample(modeSelect.value);
+	});
 
+	function type(ev){
 		// calcola il chunk
 		const before = ptr;
 		let chunk = parseInt((chunkRange && chunkRange.value) || '4', 10) || 4;
@@ -2241,7 +2302,8 @@ syscall
 				burstLeft--;
 			}, burstDelayMs);
 		}
-	});
+
+	}
 
 	// re-focus when fullscreen state changes
 	document.addEventListener('fullscreenchange', () => {
@@ -2282,8 +2344,6 @@ syscall
 		toggleCleanMode && toggleCleanMode(cleanMode);
 		updateCleanBtn();
 	});
-
-
 
 	loadExample('code');
 	updateCleanBtn();
