@@ -1,13 +1,13 @@
 # TyperScene — Cinematic
 
-[![Live demo](https://img.shields.io/badge/demo-live-brightgreen?style=for-the-badge)](https://T0ls.github.io/typerScene---Cinematic/typerScene.html)
+[![Live demo](https://img.shields.io/badge/demo-live-brightgreen?style=for-the-badge)](https://T0ls.github.io/typerScene---Cinematic/index.html)
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC--BY--4.0-0a66ff?style=for-the-badge)](https://creativecommons.org/licenses/by/4.0/)
-[![One-file](https://img.shields.io/badge/one--file-typerScene.html-39ff14?style=for-the-badge)](#)
+[![One-file](https://img.shields.io/badge/one--file-index.html-39ff14?style=for-the-badge)](#)
 [![Made with HTML/CSS/JS](https://img.shields.io/badge/made%20with-HTML%20%2F%20CSS%20%2F%20JS-1f6feb?style=for-the-badge)](#)
 
 A **cinematic, code-themed typewriter**: press keys (even at random) and text appears on screen with a blinking cursor, incremental syntax highlight, keyclick sounds, terminal-style themes, and a *clean* fullscreen mode with optional *PC stats* overlay. The whole project lives in **one HTML file** — portable, offline-ready, zero build, zero dependencies.
 
-> Just open `typerScene.html` in a modern browser and start typing.
+> Just open `index.html` in a modern browser and start typing.
 
 ---
 
@@ -19,7 +19,7 @@ I wanted it to be **user‑friendly**: download and open — **that’s it**. No
 
 ## Main features
 
-- **One‑file app**: everything in `typerScene.html` (HTML + CSS + JS) — open and it works.
+- **One‑file app**: everything in `index.html` (HTML + CSS + JS) — open and it works.
 - **Typing engine** with *chunk per key* and *micro‑typing bursts*; **Space** temporarily multiplies the chunk; **Fast mode** speeds everything up.
 - **Rewind** (F8) with configurable speed and animation.
 - **Incremental syntax highlighting** for multiple languages, optimized to reprocess only the “tail” of the text while you type.
@@ -35,7 +35,7 @@ I wanted it to be **user‑friendly**: download and open — **that’s it**. No
 ## Quick demo
 
 1. **Clone or download** the repo.  
-2. **Open** `typerScene.html` in your browser (recent Chrome/Edge/Firefox recommended).  
+2. **Open** `index.html` in your browser (recent Chrome/Edge/Firefox recommended).  
 3. **Type**: you’ll see text, cursor animation, and sound. Try **F9** for *Clean mode* and **F10** for *PC stats*.
 
 > Note: browsers require user interaction before playing audio (click/keypress).
@@ -89,19 +89,19 @@ Rendering is incremental: it reprocesses only the tail of the DOM starting from 
 
 ## Run locally & hosting
 
-- **Open the file**: double‑click `typerScene.html`.
+- **Open the file**: double‑click `index.html`.
 - **Static server (optional)**:
   ```bash
   # Python 3
   python -m http.server 8080
-  # then open http://localhost:8080/typerScene.html
+  # then open http://localhost:8080/index.html
   ```
 - **GitHub Pages (optional)**:
-  - Keep `typerScene.html` or rename it to `index.html` for a cleaner URL.
+  - Keep `index.html` or rename it to `index.html` for a cleaner URL.
   - In **Settings → Pages**, set *Deploy from a branch* → `main` / root.
   - You’ll get either:
     - `https://USERNAME.github.io/REPO/` (if you use `index.html`), or
-    - `https://USERNAME.github.io/REPO/typerScene.html`.
+    - `https://USERNAME.github.io/REPO/index.html`.
 
 *Tip*: add a blank `.nojekyll` file at the repo root if you use folders/filenames with `_` and want to bypass Jekyll processing (not required, but harmless).
 
