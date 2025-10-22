@@ -929,7 +929,7 @@ aiohttp = None  # placeholder if the lib is missing
 LOG = logging.getLogger("matrixcrawler")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 
-HREF_RE = re.compile(r'href=["\'](.*?)["\']', re.I)
+HREF_RE = re.compile(r'href=[](.*?)[]', re.I)
 
 @dataclass
 class Page:
@@ -992,7 +992,7 @@ return 0, ""
 def parse(self, url: str, text: str) -> Page:
 title_match = re.search(r"<title>(.*?)</title>", text, re.I | re.S)
 title = (title_match.group(1).strip() if title_match else url)[:120]
-links = re.findall(r'href=["\'](.*?)["\']', text, flags=re.I)
+links = re.findall(r'href=[](.*?)[]', text, flags=re.I)
 links = [l for l in links if l.startswith("http")]
 fp = hashlib.sha1(text[:5000].encode("utf-8", "ignore")).hexdigest()
 return Page(url=url, code=200 if text else 0, title=title, links=links[:50], fingerprint=fp)
@@ -1602,14 +1602,15 @@ syscall
 	// Lexer per-lingua (pattern nominati). Ordine: string|comment -> specifici -> numeri/fn/kw/type -> punct
 	function buildLexer(cfg){
 		const lang = normLang(cfg.lang);
-		// Common fragments
+		// Common fragments`
+		const pyPrefix = `(?:[rR]|[fF]|[bB]|[rR][fF]|[fF][rR]|[rR][bB]|[bB][rR])?`;
 		const strGeneric   = `(?<str>"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*')`;
 		const mlCommentC   = `(?<comment>/\\*[\\s\\S]*?\\*/)`;
 		const slCommentC   = `(?<comment>//[^\\n]*)`;
 		const slCommentHash= `(?<comment>#[^\\n]*)`;
 		const slCommentSQL = `(?<comment>--[^\\n]*)`;
 		const number       = `(?<num>\\b0x[\\da-fA-F]+\\b|\\b\\d+(?:\\.\\d+)?\\b)`;
-		const punct        = `(?<punct>[{}()[\\];.,:+\\-/*%<>=!?&|^~])`;
+		const punct 	   = `(?<punct>[{}()\\[\\];.,:+\\-/*%<>=!?&|^~])`;
 		const fnCall       = `(?<fn>[A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()`;
 
 		if (lang === 'python'){
@@ -1618,10 +1619,18 @@ syscall
 				'raise','pass','lambda','yield','del','global','nonlocal','assert','async','await','in','is','and','or','not'
 			]);
 			const type = wordsRE(['int','float','bool','str','list','tuple','dict','set','None','True','False','bytes','range','object']);
-			const triple = `(?<str>'''[\\s\\S]*?'''|"""[\\s\\S]*?""")`;
-			// Python: case-sensitive → 'gm' (not 'i')
-			return new RegExp([triple, strGeneric, slCommentHash, number, `(?<kw>${kw})`, `(?<type>${type})`, fnCall, punct].join('|'), 'gm');
+
+			// accept r/f/b and combos (rf, fr, rb, br)
+			const triplePy     = `(?<str>${pyPrefix}(?:'''[\\s\\S]*?'''|"""[\\s\\S]*?"""))`;
+			const strGenericPy = `(?<str>${pyPrefix}(?:"(?:\\\\.|[^"\\\\])*"|'(?:\\\\.|[^'\\\\])*'))`;
+
+			// Python: case-sensitive → 'gm'
+			return new RegExp(
+				[triplePy, strGenericPy, slCommentHash, number, `(?<kw>${kw})`, `(?<type>${type})`, fnCall, punct].join('|'),
+				'gm'
+			);
 		}
+
 
 		if (lang === 'rust'){
 			const kw = wordsRE([
@@ -1687,6 +1696,7 @@ syscall
 	function highlight(text, lang){
 		const re = buildLexer({ lang });   // MUST have 'g' flag
 		re.lastIndex = 0;                  // reset state
+		console.log("TEXT:",text)
 
 		let out = '';
 		let lastIndex = 0;
@@ -1717,6 +1727,7 @@ syscall
 			lastIndex = end;
 		}
 
+		console.log(out)
 		// trailing plain text
 		out += esc(text.slice(lastIndex));
 		return out;
