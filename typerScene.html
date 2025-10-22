@@ -26,6 +26,7 @@
 			--tab-hover:  rgba(57,255,20,0.35);
 			--tab-active-bg: linear-gradient(180deg,#2a30345c,#041018);
 
+			--cursor-stroke: clamp(1px, 0.10em, 3px);
 			/* help browsers prefer dark controls */
 			color-scheme: dark;
 		}
@@ -294,7 +295,8 @@
 		/* Base (fallback visible even without variant) */
 		.cursor{
 			position:absolute; top:0; left:0;
-			width:10px; height:20px;
+			width: 1ch;
+			height: var(--lh, 20px);
 			background:var(--cursor-color);
 			opacity:.95; border-radius:2px;
 			box-shadow:
@@ -303,17 +305,19 @@
 			animation: blink 1s steps(2) infinite, pulse 2s infinite;
 			pointer-events:none; user-select:none;
 			will-change: top,left,opacity;
+			font-family: var(--code-mono);
 			transition:none !important;
 			z-index:5;
 		}
+
 		/* Variants override size/shape */
-		.cursor--bar{ width:2px; height:var(--lh,20px); background:var(--cursor-color) }
-		.cursor--vintage{ width:1ch; height:calc(var(--lh,20px)/2); background:var(--cursor-color); transform:translateY(calc(var(--lh,20px)/2)) }
-		.cursor--underline{ width:1ch; height:2px; background:var(--cursor-color); transform:translateY(calc(var(--lh,20px) - 2px)) }
-		.cursor--double{ width:1ch; height:2px; background:var(--cursor-color); transform:translateY(calc(var(--lh,20px) - 4px)); box-shadow:0 2px 0 var(--cursor-color) }
-		.cursor--box{ width:1ch; height:var(--lh,20px); background:var(--cursor-color) }
-		.cursor--box-empty{ width:1ch; height:var(--lh,20px); border:1px solid var(--cursor-color); background:transparent }
-		.cursor.no-blink{ animation:none !important }
+		.cursor--bar{ width: var(--cursor-stroke); height: var(--lh,20px); background: var(--cursor-color) }
+		.cursor--vintage{ width: 1ch; height: calc(var(--lh,20px)/2); background: var(--cursor-color); transform: translateY(calc(var(--lh, 20px) / 2 - var(--cursor-stroke))); }
+		.cursor--underline{ width: 1ch; height: var(--cursor-stroke); background: var(--cursor-color); transform: translateY(calc(var(--lh, 20px) - var(--cursor-stroke))); }
+		.cursor--double{ width: 1ch; height: var(--cursor-stroke); background: var(--cursor-color); transform: translateY(calc(var(--lh,20px) - 4px)); box-shadow: 0 calc(var(--cursor-stroke) * 2) 0 var(--cursor-color); }
+		.cursor--box{ width: 1ch; height: var(--lh,20px); background: var(--cursor-color); }
+		.cursor--box-empty{ width: 1ch; height: var(--lh,20px); border: var(--cursor-stroke) solid var(--cursor-color); background: transparent; }
+		.cursor.no-blink{ animation:none !important; }
 
 		/* Cursor select panel hidden in clean mode */
 		.clean #cursorPanel{ display:none !important }
@@ -2344,9 +2348,12 @@ syscall
 	fontSizeRange.addEventListener('input', () => {
 		const size = fontSizeRange.value;
 		fontSizeVal.textContent = `${size}px`;
-		document.querySelectorAll('#screen, #source').forEach(el => {
+		document.querySelectorAll('#screen, #source, #cursor').forEach(el => {
 			el.style.fontSize = `${size}px`;
 		});
+
+		// update cursor right away (updates --lh via render pipeline)
+		resyncCursorAfterLayout && resyncCursorAfterLayout()
 	});
 
 	fontSelect?.addEventListener('change', () => {
@@ -2357,7 +2364,7 @@ syscall
 		} else {
 			setTimeout(resyncCursorAfterLayout, 60);
 		}
-		render();
+		resyncCursorAfterLayout && resyncCursorAfterLayout()
 	});
 
 	function updateCleanBtn(){
