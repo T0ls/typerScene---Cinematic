@@ -1,6 +1,6 @@
 # TyperScene — Cinematic
 
-[![Live demo](https://img.shields.io/badge/demo-live-brightgreen?style=for-the-badge)](https://T0ls.github.io/typerScene---Cinematic/index.html)
+[![Live demo](https://img.shields.io/badge/demo-live-brightgreen?style=for-the-badge)](https://T0ls.github.io/typerScene---Cinematic/)
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC--BY--4.0-0a66ff?style=for-the-badge)](https://creativecommons.org/licenses/by/4.0/)
 [![One-file](https://img.shields.io/badge/one--file-index.html-39ff14?style=for-the-badge)](#)
 [![Made with HTML/CSS/JS](https://img.shields.io/badge/made%20with-HTML%20%2F%20CSS%20%2F%20JS-1f6feb?style=for-the-badge)](#)
