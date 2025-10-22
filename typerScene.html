@@ -814,7 +814,9 @@
 		</div>
 		<footer class="site-footer">
 			<div class="footer-content">
-				<span>© <span id="copyright-year"></span>
+				<span>
+					<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" 
+						style="color: inherit !important; text-decoration: none !important;" id="copyright-year">© </a>
 					<a href="https://github.com/T0ls/typerScene---Cinematic"
 						target="_blank" rel="noopener noreferrer" aria-label="Open GitHub repo: T0ls — TyperScene"
 						style="color: inherit !important; text-decoration: none !important;">
@@ -2430,7 +2432,7 @@ syscall
 	window.addEventListener('resize', resyncCursorAfterLayout);
 
 	const y = document.getElementById('copyright-year');
-	if (y) y.textContent = new Date().getFullYear();
+	if (y) y.textContent = '© ' + new Date().getFullYear();
 })();
 
 // --- Suono tastiera con upload personalizzato e toggle ---
