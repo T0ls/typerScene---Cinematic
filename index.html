@@ -1043,66 +1043,66 @@ if __name__ == "__main__":
 raise SystemExit(main(sys.argv[1:]))
 `,
 		rust: `use std::{collections::VecDeque, time::Duration};
-use clap::Parser;
-use tokio::{fs::File, io::{AsyncBufReadExt, BufReader}, time::sleep};
-use serde::Serialize;
+use clap : : Parser;
+use tokio : :{fs : : File,io : :{AsyncBufReadExt,BufReader},time : : sleep};
+use serde : : Serialize;
 
-#[derive(Parser, Debug)]
-#[command(name = "logtail", version, about = "Async log monitor")]
+#[derive(Parser,Debug)]
+#[command(name = "logtail",version,about = "Async log monitor")]
 struct Args{
-/// Path to the log file
-#[arg(short, long)]
-file: String,
-/// Max buffered lines
-#[arg(long, default_value_t = 200)]
-max: usize,
+     /// Path to the log file
+    #[arg(short,long)]
+    file : String,
+     /// Max buffered lines
+    #[arg(long,default_value_t = 200)]
+    max : usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug,Serialize)]
 struct Line{
-idx: usize,
-level: String,
-text: String,
+    idx : usize,
+    level : String,
+    text : String,
 }
 
-fn classify(s: &str) -> String{
-if s.contains("ERROR"){ "ERROR".into() }
-else if s.contains("WARN"){ "WARN".into() }
-else if s.contains("DEBUG"){ "DEBUG".into() }
-else { "INFO".into() }
+fn classify(s : & str)- > String{
+    if s.contains("ERROR"){"ERROR".into()}
+    else if s.contains("WARN"){"WARN".into()}
+    else if s.contains("DEBUG"){"DEBUG".into()}
+    else{"INFO".into()}
 }
 
-#[tokio::main]
+#[tokio : : main]
 async fn main(){
-let args = Args::parse();
-let path = args.file;
-let mut buf: VecDeque<Line> = VecDeque::new();
-let mut idx: usize = 0;
+    let args = Args : : parse();
+    let path = args.file;
+    let mut buf : VecDeque < Line > = VecDeque : : new();
+    let mut idx : usize = 0;
 
-loop {
-match File::open(&path).await {
-Ok(f) => {
-let reader = BufReader::new(f);
-let mut lines = reader.lines();
-while let Ok(Some(l)) = lines.try_next_line().await {
-let level = classify(&l);
-let line = Line{ idx, level, text: l };
-if buf.len() >= args.max { buf.pop_front(); }
-buf.push_back(line);
-idx += 1;
-}
-// fake render
-println!("--- last {} lines ---", buf.len());
-for ln in buf.iter().rev().take(15){
-println!("[{:05}] {:<5} {}", ln.idx, ln.level, ln.text);
-}
-}
-Err(e) => {
-eprintln!("open error: {e}");
-}
-}
-sleep(Duration::from_millis(600)).await;
-}
+    loop{
+        match File : : open(& path).await{
+            Ok(f)= >{
+                let reader = BufReader : : new(f);
+                let mut lines = reader.lines();
+                while let Ok(Some(l))= lines.try_next_line().await{
+                    let level = classify(& l);
+                    let line = Line{idx,level,text : l};
+                    if buf.len()> = args.max{buf.pop_front();}
+                    buf.push_back(line);
+                    idx + = 1;
+                }
+                 // fake render
+                println !(" - - - last{}lines - - - ",buf.len());
+                for ln in buf.iter().rev().take(15){
+                    println !("[{: 05}]{: < 5}{}",ln.idx,ln.level,ln.text);
+                }
+            }
+            Err(e)= >{
+                eprintln !("open error :{e}");
+            }
+        }
+        sleep(Duration : : from_millis(600)).await;
+    }
 }
 `,
 		java: `import java.io.Closeable;
@@ -1111,44 +1111,46 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public final class MiniScheduler implements Closeable {
-private final ScheduledExecutorService exec = Executors.newScheduledThreadPool(2);
-private final Map<String, ScheduledFuture<?>> tasks = new ConcurrentHashMap<>();
+  private final ScheduledExecutorService exec = Executors.newScheduledThreadPool(2);
+  private final Map < String, ScheduledFuture < ? >> tasks = new ConcurrentHashMap < > ();
 
-public interface Job { void run() throws Exception; }
+  public interface Job {
+    void run() throws Exception;
+  }
 
-public String every(String name, long periodMs, Job job){
-ScheduledFuture<?> f = exec.scheduleAtFixedRate(() -> {
-try{
-System.out.printf("%s RUN %s%n", Instant.now(), name);
-job.run();
-}catch(Exception e){
-System.err.printf("%s ERR %s: %s%n", Instant.now(), name, e.getMessage());
-}
-}, periodMs, periodMs, TimeUnit.MILLISECONDS);
-tasks.put(name, f);
-return name;
-}
+  public String every(String name, long periodMs, Job job) {
+    ScheduledFuture < ? > f = exec.scheduleAtFixedRate(() -> {
+      try {
+        System.out.printf("%s RUN %s%n", Instant.now(), name);
+        job.run();
+      } catch (Exception e) {
+        System.err.printf("%s ERR %s: %s%n", Instant.now(), name, e.getMessage());
+      }
+    }, periodMs, periodMs, TimeUnit.MILLISECONDS);
+    tasks.put(name, f);
+    return name;
+  }
 
-public void cancel(String name){
-ScheduledFuture<?> f = tasks.remove(name);
-if (f != null) f.cancel(false);
-}
+  public void cancel(String name) {
+    ScheduledFuture < ? > f = tasks.remove(name);
+    if (f != null) f.cancel(false);
+  }
 
-@Override public void close(){
-exec.shutdown();
-}
+  @Override public void close() {
+    exec.shutdown();
+  }
 
-// Demo
-public static void main(String[] args) throws Exception {
-try (MiniScheduler s = new MiniScheduler()){
-s.every("heartbeat", 700, () -> System.out.println("tick"));
-s.every("work", 1200, () -> {
-Thread.sleep(100);
-System.out.println("work done");
-});
-Thread.sleep(6000);
-}
-}
+  // Demo
+  public static void main(String[] args) throws Exception {
+    try (MiniScheduler s = new MiniScheduler()) {
+      s.every("heartbeat", 700, () -> System.out.println("tick"));
+      s.every("work", 1200, () -> {
+        Thread.sleep(100);
+        System.out.println("work done");
+      });
+      Thread.sleep(6000);
+    }
+  }
 }
 `,
 		sql: `DROP TABLE IF EXISTS orders_items;
