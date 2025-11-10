@@ -499,6 +499,7 @@
 				<!-- Preview panel -->
 				<div class="preview panel" tabindex="0" id="preview">
 					<div class="screen-wrap">
+						<input id="mobileKeyboard" type="text" style="position:absolute;opacity:0;height:0;width:0;border:0;padding:0;" />
 						<pre id="screen"></pre>
 						<div class="cursor" id="cursor"></div>
 
@@ -1698,7 +1699,6 @@ syscall
 	function highlight(text, lang){
 		const re = buildLexer({ lang });   // MUST have 'g' flag
 		re.lastIndex = 0;                  // reset state
-		console.log("TEXT:",text)
 
 		let out = '';
 		let lastIndex = 0;
@@ -1729,7 +1729,6 @@ syscall
 			lastIndex = end;
 		}
 
-		console.log(out)
 		// trailing plain text
 		out += esc(text.slice(lastIndex));
 		return out;
@@ -3152,8 +3151,48 @@ document.addEventListener('fullscreenchange', () => {
 	if (!document.fullscreenElement) toggleStats(false);
 });
 
-/* Se hai una toggleCleanMode(on), assicurati di spegnere stats in off:
-   if (!on) toggleStats(false); */
+window.addEventListener("load", () => {
+	const userAgentCheck = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+	const screenCheck = window.matchMedia("(max-width: 768px)").matches;
+	const isMobile = userAgentCheck || screenCheck;
+	if (isMobile){
+		alert("Mobile device detected:\nSite not optimized for mobile or small screens.\nNot all features may work properly.");
+	}
+});
+
+const preview = document.getElementById('preview');
+const mobileKeyboard = document.getElementById('mobileKeyboard');
+
+// Mostra tastiera al tocco
+preview.addEventListener('touchend', () => {
+  if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+    setTimeout(() => mobileKeyboard.focus(), 50);
+  }
+});
+
+// Mantiene la tastiera aperta
+mobileKeyboard.addEventListener('blur', (e) => {
+  if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+    setTimeout(() => e.target.focus(), 100);
+  }
+});
+
+// Simula la pressione dei tasti
+mobileKeyboard.addEventListener('input', (e) => {
+  const val = e.target.value;
+  if (val.length > 0) {
+    const lastChar = val.slice(-1);
+    e.target.value = ''; // reset
+
+    // Crea evento tastiera per TyperScene
+    const keyEvent = new KeyboardEvent('keydown', {
+      key: lastChar,
+      bubbles: true,
+      cancelable: true
+    });
+    document.dispatchEvent(keyEvent);
+  }
+});
 
 		</script>
 	</body>
