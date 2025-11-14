@@ -14,7 +14,7 @@
 		<meta name="description" content="TyperScene is a cinematic playground that simulates code typing: upload a file, choose language and font, and play back the typing with key sounds and syntax highlighting.">
 		<link rel="canonical" href="https://t0ls.github.io/typerScene---Cinematic/">
 		<meta name="robots" content="index, follow">
-		<!-- Google Fonts (JetBrains Mono + Space Mono) -->
+		<!-- Google Fonts -->
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<!-- Fonts import -->
@@ -25,7 +25,7 @@
 
 		<title>TyperScene — Cinematic</title>
 		<style>
-		/* ---------- Root variables (unified) ---------- */
+		/* ---------- Root variables ---------- */
 		:root{
 			/* theme */
 			--bg:#000000;
@@ -41,7 +41,6 @@
 			--tab-active-bg: linear-gradient(180deg,#2a30345c,#041018);
 
 			--cursor-stroke: clamp(1px, 0.10em, 3px);
-			/* help browsers prefer dark controls */
 			color-scheme: dark;
 
 			/* new font */
@@ -53,7 +52,6 @@
 			--ui-megrim: "Megrim", Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 			--ui-syncopate: "Syncopate", Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 
-			/* (opzionale) mapping logico per headings/body */
 			--font-head: var(--ui-orbitron);
 			--font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 		}
@@ -77,15 +75,7 @@
 		/* left column + code palette vars */
 		.left{
 			flex:1;
-			display:flex;
-			flex-direction:column;
-			gap:14px;
-			transition:all .25s ease;
-
-			--code-mono:"JetBrains Mono",monospace;
-			--kw:#7fffb5; --type:#7ee0ff; --str:#ffd19a; --num:#ffb3b3;
-			--comment:#6a7b6a; --fn:#ffd1ff; --punct:#cfe8ff; --loglevel:#ffb86b;
-			--code-color:#b6ffb6;               /* default code color */
+			display:flex; flex-direction:column; gap:14px; transition:all .25s ease; --code-mono:"JetBrains Mono",monospace; --kw:#7fffb5; --type:#7ee0ff; --str:#ffd19a; --num:#ffb3b3; --comment:#6a7b6a; --fn:#ffd1ff; --punct:#cfe8ff; --loglevel:#ffb86b; --code-color:#b6ffb6;               /* default code color */
 			--cursor-color: var(--code-color);   /* cursor inherits code color */
 		}
 
@@ -93,8 +83,7 @@
 		header h1{font-size:20px;margin:0;color:var(--accent);letter-spacing:1px}
 		.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 		.controls label{font-size:13px;color:var(--muted)}
-		.btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.03);padding:8px 10px;border-radius:8px;color:var(--text);cursor:pointer}
-		.small{font-size:13px;padding:6px 8px}
+		.btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.03);padding:8px 10px;border-radius:8px;color:var(--text);cursor:pointer} .small{font-size:13px;padding:6px 8px}
 
 		/* ---------- Preview / Screen ---------- */
 		.preview{
@@ -145,7 +134,7 @@
 		.punct{color:var(--punct)}
 		.loglevel{color:var(--loglevel)}
 
-		/* Monocolore: usa solo --code-color */
+		/* Monocolore: use --code-color */
 		.mono #screen .kw,
 		.mono #screen .type,
 		.mono #screen .str,
@@ -170,7 +159,7 @@
 		.chip{background:rgba(255,255,255,0.02);padding:6px 8px;border-radius:8px;font-size:13px}
 		.footer{font-size:12px;color:var(--muted);margin-top:6px}
 
-		/* ---------- Selects (global) ---------- */
+		/* ---------- Selects ---------- */
 		select,
 		#fontSelect,#modeSelect,#cursorSelect{
 			appearance:none;-webkit-appearance:none;-moz-appearance:none;
@@ -234,6 +223,7 @@
 		#chunkRange{ accent-color:#39ff14 }
 
 		.field-value{ font-size:12px; color:var(--muted); align-self:flex-end }
+
 		/* ---------- Subpanels grid (editor area) ---------- */
 		#sourcePanel{ grid-column:1; grid-row:1 / span 2 }
 		.subpanels .panel{ display:flex; flex-direction:column }
@@ -277,7 +267,7 @@
 			background:rgba(0,0,0,0.35); padding:2px 6px; border-radius:6px;
 		}
 
-		/* ---------- Tabs (Bootstrap-ish) ---------- */
+		/* ---------- Tabs ---------- */
 		.tabs{
 			display:flex; gap:0; flex-wrap:wrap; margin:0 0 10px 0;
 			border-bottom:1px solid var(--tab-border);
@@ -312,14 +302,14 @@
 			box-shadow: inset 0 0 180px rgba(0,0,0,0.55), inset 0 0 60px rgba(0,0,0,0.35);
 		}
 
-		/* ---------- Cursor (base + variants) ---------- */
+		/* ---------- Cursors ---------- */
 		@keyframes blink{0%{opacity:1}50%{opacity:.15}100%{opacity:1}}
 		@keyframes pulse{
 		0%,100%{ box-shadow:0 0 12px var(--cursor-color), 0 0 24px color-mix(in srgb, var(--cursor-color) 60%, transparent) }
 		50%{    box-shadow:0 0 18px var(--cursor-color), 0 0 36px color-mix(in srgb, var(--cursor-color) 75%, transparent) }
 		}
 
-		/* Base (fallback visible even without variant) */
+		/* Base */
 		.cursor{
 			position:absolute; top:0; left:0;
 			width: 1ch;
@@ -359,7 +349,7 @@
 		}
 		.swatch:focus-visible{ outline:2px solid #39ff14; outline-offset:2px }
 
-		/* ---------- Stats side panel (clean+F10) ---------- */
+		/* ---------- Stats side panel ---------- */
 		.clean .preview{ display:block !important; position:relative }
 		#statsPanel{
 			display:none; position:fixed; right:0; top:0;
@@ -396,7 +386,7 @@
 			white-space:pre; overflow:auto; flex:1 1 auto; min-height:0;
 		}
 
-		/* ---------- Clean / Cinema mode ---------- */
+		/* ---------- Clean ---------- */
 		.clean-body{ background:#000 !important }
 		.clean header,.clean .controls,.clean .right,.clean .footer{ display:none !important }
 		.clean .preview{
@@ -444,42 +434,38 @@
 			#screen{ font-size:16px }
 		}
 
-/* Griglia che affianca Source (sinistra) e la colonna destra */
-.subpanel-grid{
-  display: grid;
-  grid-template-columns: 2fr 1fr;  /* Source 2/3, colonna destra 1/3 */
-  gap: 12px;
-  align-items: stretch;            /* stesse altezze di colonna */
-}
+		/* ---------- Right side alligns ---------- */
+		.subpanel-grid{
+			display: grid;
+			grid-template-columns: 2fr 1fr;
+			gap: 12px;
+			align-items: stretch;
+		}
 
-/* Colonna destra: 3 righe (Font auto, Typing 1fr, Rewind 1fr) */
-.sub-right{
-  display: grid;
-  grid-template-rows: auto 1fr 1fr;
-  gap: 12px;
-  height: 100%;
-}
+		.sub-right{
+			display: grid;
+			grid-template-rows: auto 1fr 1fr;
+			gap: 12px;
+			height: 100%;
+		}
 
-/* Card generiche */
-.panel{ display:flex; flex-direction:column; }
+		.panel{ display:flex; flex-direction:column; }
 
-/* Font: deve occupare SOLO lo spazio necessario */
-#fontPanel{
-  align-self: start;
-  height: auto;
-  min-height: 0;
-  padding-bottom: 8px;
-}
+		#fontPanel{
+			align-self: start;
+			height: auto;
+			min-height: 0;
+			padding-bottom: 8px;
+		}
 
-/* Le due card “stirabili” per riempire lo spazio */
-#typingPanel, #rewindPanel{
-  min-height: 0; /* importante in grid */
-}
+		#typingPanel, #rewindPanel{
+			min-height: 0;
+		}
 
-/* Utility controlli */
-.control-row{ display:flex; align-items:center; gap:10px; }
-.control-row input[type="range"]{ flex:1; }
-.hint{ font-size:12px; color:var(--muted); opacity:.9; margin:6px 0 4px; }
+		/* ---------- Utility controls ---------- */
+		.control-row{ display:flex; align-items:center; gap:10px; }
+		.control-row input[type="range"]{ flex:1; }
+		.hint{ font-size:12px; color:var(--muted); opacity:.9; margin:6px 0 4px; }
 
 		</style>
 	</head>
@@ -543,7 +529,7 @@
 						<textarea id="source" style="width:97%;margin-top:8px;background:#021218;color:var(--muted);border-radius:8px;padding:8px;border:0;"></textarea>
 					</div>
 
-					<!-- Colonna destra accanto a Source text -->
+					<!-- Right column near Source text -->
 					<div id="subRight" class="sub-right">
 						<!-- Font Panel -->
 						<div class="panel" id="fontPanel">
@@ -698,21 +684,21 @@
 					<!-- TAB 2: TEXT -->
 					<div id="tabColor" class="tab-content hidden">
 						<div id="colorSwatches" class="swatch-grid">
-							<!-- verdi -->
+							<!-- green -->
 							<button class="swatch" data-color="#b6ffb6" style="--sw:#b6ffb6" title="#b6ffb6"></button>
 							<button class="swatch" data-color="#39ff14" style="--sw:#39ff14" title="#39ff14"></button>
 							<button class="swatch" data-color="#00ffa2" style="--sw:#00ffa2" title="#00ffa2"></button>
-							<!-- azzurri/blu -->
+							<!-- sky blue/blue -->
 							<button class="swatch" data-color="#7ee0ff" style="--sw:#7ee0ff" title="#7ee0ff"></button>
 							<button class="swatch" data-color="#55ccff" style="--sw:#55ccff" title="#55ccff"></button>
 							<button class="swatch" data-color="#82aaff" style="--sw:#82aaff" title="#82aaff"></button>
-							<!-- ambra/arancio -->
+							<!-- amber/orange -->
 							<button class="swatch" data-color="#ffd19a" style="--sw:#ffd19a" title="#ffd19a"></button>
 							<button class="swatch" data-color="#ffb86b" style="--sw:#ffb86b" title="#ffb86b"></button>
-							<!-- viola/rosa -->
+							<!-- violet/pink -->
 							<button class="swatch" data-color="#ffd1ff" style="--sw:#ffd1ff" title="#ffd1ff"></button>
 							<button class="swatch" data-color="#ff9de6" style="--sw:#ff9de6" title="#ff9de6"></button>
-							<!-- bianco / grigi -->
+							<!-- white/grey -->
 							<button class="swatch" data-color="#cfe8ff" style="--sw:#cfe8ff" title="#cfe8ff"></button>
 							<button class="swatch" data-color="#e6f6e6" style="--sw:#e6f6e6" title="#e6f6e6"></button>
 						</div>
@@ -842,7 +828,7 @@
 
 				<a href="https://github.com/T0ls" target="_blank" rel="noopener noreferrer"
 					class="gh-link" aria-label="GitHub: T0ls">
-					<!-- GitHub mark (SVG inline) -->
+					<!-- GitHub mark -->
 					<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
 						<path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38
 							0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
@@ -886,7 +872,7 @@
 	let autoTyping = false;
 	let autoTimer = null;
 
-	// Interval between typing ticks in ms (adjust to taste).
+	// Interval between typing ticks in ms
 	let autoIntervalMs = 40;
 
 	let rawText = '';
@@ -894,19 +880,18 @@
 	let fastMode = false;
 	let cleanMode = false;
 
-	// Stato extra
-	let userLoadedFile = false;   // diventa true quando carichi un file
-	let warnedGenWithFile = false; // per non ripetere alert
-	let currentMode = 'py';       // py | rust | java | asm | sql
+	let userLoadedFile = false;
+	let warnedGenWithFile = false;
+	let currentMode = 'py';
 
 	let rewindAnimated = true;
-	let rewindRAF = null; // requestAnimationFrame id
+	let rewindRAF = null;
 
-	let burstTimer = null;      // setInterval attivo durante il “micro-typing”
-	let burstLeft  = 0;         // quanti caratteri mancano nel burst corrente
-	let burstDelayMs = 12;   // ritardo tra un carattere e l’altro (default 12)
+	let burstTimer = null;
+	let burstLeft  = 0;
+	let burstDelayMs = 12; // default 12
 
-	// mappa select → linguaggio
+	// map select → lang
 	const modeMap = { py:'py', rust:'rust', java:'java', asm:'asm', sql:'sql' };
 
 	const examples = {
@@ -1401,9 +1386,9 @@ syscall
 `,
 	};
 
-	// === Reset UI ai default quando ricarichi la pagina  ===
+	// === Reset UI to default when f5  ===
 	function resetUIToDefaultsOnLoad(){
-		// dropdown / checkbox ai default
+		// dropdown / checkbox 
 		modeSelect && (modeSelect.selectedIndex = 0);
 		fontSelect  && (fontSelect.selectedIndex  = 0);
 		const cursorSelect = document.getElementById('cursorSelect');
@@ -1422,7 +1407,7 @@ syscall
 		if (monoColorChk){ monoColorChk.checked = false; }
 		preview && preview.classList.remove('mono');
 
-		// range: ripristina al valore di default e notifica i listener "input"
+		// range
 		const fireInput = el => el && el.dispatchEvent(new Event('input', { bubbles:true }));
 		if (chunkRange){
 			chunkRange.value = chunkRange.getAttribute('value') || '1';
@@ -1446,7 +1431,7 @@ syscall
 		const colorHexInput = document.getElementById('colorHexInput');
 		colorHexInput.value = "";
 
-		// audio: torna al click generato
+		// audio
 		const soundFileInput = document.getElementById('soundFileInput');
 		const soundFileLabel = document.getElementById('soundFileLabel');
 		if (typeof useCustomSound !== 'undefined') useCustomSound = false;
@@ -1454,12 +1439,12 @@ syscall
 		soundFileInput && (soundFileInput.value = '');
 		soundFileLabel && (soundFileLabel.textContent = 'Default click');
 
-		// bottone mute ON (cioè audio attivo)
+		// mute button ON
 		const toggleSoundBtn = document.getElementById('toggleSoundBtn');
 		if (typeof soundMuted !== 'undefined') soundMuted = false;
 		if (toggleSoundBtn){ toggleSoundBtn.textContent = '🔊 Sound On'; toggleSoundBtn.style.opacity = 1; }
 
-		// sorgente / preview vuoti e cursore all’inizio
+		// source / empty preview and cursor at the beginning
 		const fileInput = document.getElementById('fileInput');
 		const source = document.getElementById('source');
 		fileInput && (fileInput.value = '');
@@ -1471,17 +1456,17 @@ syscall
 		const cursor = document.getElementById('cursor');
 		if (cursor){ cursor.style.top = '0px'; cursor.style.left = '0px'; }
 
-		// sync UI vario
+		// sync UI
 		typeof updateCleanBtn === 'function' && updateCleanBtn();
 		(typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.();
 	}
 
-	// pageshow copre anche i casi di back/forward cache oltre al normale load
+	// pageshow also covers back/forward cache cases in addition to normal load
 	window.addEventListener('pageshow', resetUIToDefaultsOnLoad);
 
-	// Ricalcola posizione cursore dopo cambi layout/font/fullscreen
+	// Recalculate cursor position after layout/font/fullscreen changes
 	function resyncCursorAfterLayout(){
-		// doppio rAF per aspettare il reflow
+		// double rAF to wait for reflow
 		requestAnimationFrame(()=> {
 			(typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.();
 			setTimeout(()=> (typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.(), 30);
@@ -1499,7 +1484,6 @@ syscall
 		if (style && style !== 'default') {
 			cursor.classList.add('cursor--' + style);
 		}
-		// se il tipo cambia (es. bar -> box), un render aiuta a riallineare
 		if (typeof render === 'function') render();
 	}
 
@@ -1507,7 +1491,7 @@ syscall
 		setCursorStyle(cursorSelect.value);
 	});
 
-	// inizializza il valore del select in base allo stato attuale (non forziamo un default)
+	// initialize the value of the select based on the current state
 	(function initCursorSelect(){
 		if (!cursorSelect || !cursor) return;
 		const existing = [...cursor.classList].find(c => c.startsWith('cursor--'));
@@ -1516,13 +1500,13 @@ syscall
 
 	const cursorBlinkChk = document.getElementById('cursorBlinkChk');
 
-	// inizializza lo stato in base alla classe presente (di default: lampeggia)
+	// initialize the state based on the present class
 	if (cursorBlinkChk) {
 		cursorBlinkChk.checked = !cursor.classList.contains('no-blink');
 		cursorBlinkChk.addEventListener('change', () => {
 			if (!cursor) return;
 			cursor.classList.toggle('no-blink', !cursorBlinkChk.checked);
-			// piccolo re-render per riallineare eventuale stile
+			// small re-render to realign any styling
 			if (typeof render === 'function') render();
 		});
 	}
@@ -1547,12 +1531,12 @@ syscall
 				return;
 			}
 
-			// Type the next chunk; uses current `speed`
+			// Type the next chunk
 			const ev = new KeyboardEvent('keydown', {
 				key: 'l',
 				code: 'KeyL',
-				keyCode: 18,    // legacy, ma utile per compatibilità
-				which: 18,      // legacy
+				keyCode: 18,
+				which: 18,
 				bubbles: true,
 			});
 			type(ev);
@@ -1586,9 +1570,9 @@ syscall
 
 	function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-	// Costruisce liste -> pattern \b(?:A|B|C)\b
+	// Build list-> pattern \b(?:A|B|C)\b
 	function wordsRE(words){
-		// Escape any regex meta in words (safe even if not needed)
+		// Escape any regex meta in words
 		const escaped = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 		// IMPORTANT: join with '|' (NOT '\|')
 		return `\\b(?:${escaped.join('|')})\\b`;
@@ -1602,7 +1586,7 @@ syscall
 		return s; // 'java', 'sql', 'generic', etc.
 	}
 
-	// Lexer per-lingua (pattern nominati). Ordine: string|comment -> specifici -> numeri/fn/kw/type -> punct
+	// Lexer per-lang. Order: string|comment -> specific -> num/fn/kw/type -> punct
 	function buildLexer(cfg){
 		const lang = normLang(cfg.lang);
 		// Common fragments`
@@ -1735,11 +1719,11 @@ syscall
 	}
 
 	// === Render incrementale + rAF ===
-	let lastRenderedPtr = 0;   // quanto è già stato “dipinto”
+	let lastRenderedPtr = 0;
 	let renderRAF = 0;
 
 	function getLang(){
-		// aggiorna l’ID qui sotto con quello reale del tuo select della lingua
+		// Update the ID below with the actual ID of your language selector
 		const v = (document.getElementById('modeSelect')?.value || '').toLowerCase();
 		if (v.includes('py')) return 'py';
 		if (v.includes('rust'))   return 'rust';
@@ -1791,7 +1775,7 @@ syscall
 			const safeStart = findSafeStart(rawText, lastRenderedPtr);
 			const headHTML  = highlight(rawText.slice(0, safeStart), lang);
 			const tailHTML  = highlight(rawText.slice(safeStart, ptr), lang);
-			// simple & safe: rebuild innerHTML once (fast enough for typical sizes)
+			// simple & safe: rebuild innerHTML once
 			screen.innerHTML = headHTML + tailHTML;
 			lastRenderedPtr = ptr;
 		}
@@ -1821,8 +1805,8 @@ syscall
 	}
 
 	modeSelect?.addEventListener('change', () => {
-		lastRenderedPtr = 0;       // forzi ricostruzione completa
-		render(true);              // flush immediato
+		lastRenderedPtr = 0;
+		render(true);
 	});
 
 	generateChk?.addEventListener('change', () => {
@@ -1868,7 +1852,7 @@ syscall
 	const rewindAnimChk = document.getElementById('rewindAnimChk');
 	rewindAnimChk?.addEventListener('change', () => {
 		rewindAnimated = rewindAnimChk.checked;
-		// se sto animando e l’utente disattiva ora l’animazione → stop immediato
+		// if I'm animating and the user deactivates the animation now → immediate stop
 		if (!rewindAnimated && rewindRAF) { cancelAnimationFrame(rewindRAF); rewindRAF = null; }
 	});
 
@@ -1876,14 +1860,13 @@ syscall
 	const burstDelayVal   = document.getElementById('burstDelayVal');
 
 	if (burstDelayRange && burstDelayVal){
-		// init UI dallo stato
+		// init UI from state
 		burstDelayRange.value = String(burstDelayMs);
 		burstDelayVal.textContent = `${burstDelayMs}ms`;
 
 		burstDelayRange.addEventListener('input', () => {
 			burstDelayMs = parseInt(burstDelayRange.value, 10) || 12;
 			burstDelayVal.textContent = `${burstDelayMs}ms`;
-			// Applica subito: interrompi un burst in corso (se presente)
 			if (burstTimer){ clearInterval(burstTimer); burstTimer = null; }
 		});
 	}
@@ -1897,20 +1880,19 @@ syscall
 		source.value = '';
 	});
 
-	// Rewind animato (riporta il cursore in alto a sinistra alla fine)
+	// Animated rewind
 	function getRewindStep(){
-		// usa il tuo slider di velocità, con fallback
 		const v = parseInt(document.getElementById('rewindSpeedRange')?.value || '40', 10);
 		return Math.max(1, v);
 	}
 
 	function rewindToStart(){
-		// interrompi eventuale animazione precedente
+		// stop any previous animation
 		if (rewindRAF) { cancelAnimationFrame(rewindRAF); rewindRAF = null; }
 
 		if (!rewindAnimated){
 			ptr = 0;
-			render(); // il tuo render già ricolloca il cursore e scrolla
+			render();
 			return;
 		}
 
@@ -1929,9 +1911,7 @@ syscall
 		tick();
 	}
 
-	// collega il bottone alla nuova funzione
 	restartBtn?.addEventListener('click', rewindToStart);
-
 
 	copyBtn.addEventListener('click', () => {
 		navigator.clipboard.writeText(rawText.slice(0, ptr) || '').then(()=>{
@@ -1953,14 +1933,14 @@ syscall
 	function ident(len=randInt(4,9)){ const a='abcdefghijklmnopqrstuvwxyz'; return Array.from({length:len},()=>a[randInt(0,a.length-1)]).join(''); }
 	const IND = (n)=>' '.repeat(n);
 
-	// Genera blocchi multi-riga non banali, con indentazione
+	// Generate non-trivial, indented multi-line blocks
 	function generateSnippet(lang='py'){
 		if (userLoadedFile) {
 			if (!warnedGenWithFile) {
 				alert('Generation is disabled because a file is loaded. Clear the file to enable generation.');
 				warnedGenWithFile = true;
 			}
-			return ''; // skip
+			return '';
 		}
 
 		switch(lang){
@@ -1974,19 +1954,15 @@ syscall
 	}
 
 	function maybeGenerateNextBlock(){
-		if (!generateChk.checked) return;      // generazione disattivata → stop
-		if (userLoadedFile) return;            // file utente presente → stop (alert già mostrato)
-		// siamo a fine testo: appendo un nuovo blocco del linguaggio corrente
+		if (!generateChk.checked) return;
+		if (userLoadedFile) return;
 		const snippet = generateSnippet(currentMode);
 		if (!snippet) return;
-		// separatore elegante
 		rawText += (rawText.endsWith('\n') ? '' : '\n') + `\n` + snippet;
-		source.value = rawText;                // tieni in sync la source textarea
-		// NON avanzare ptr qui: il prossimo tasto “consuma” il nuovo blocco
+		source.value = rawText;
 	}
 
-
-	// se abbiamo finito ciò che c'era, valuta se generare
+	// if we've run out of what was there, consider generating
 	if (ptr === rawText.length) {
 		maybeGenerateNextBlock();
 	}
@@ -2175,12 +2151,12 @@ syscall
 			document.documentElement.classList.add('clean-body');
 
 			const el = document.querySelector('.preview');
-			// ask fullscreen on the preview (it's visible now)
+			// ask fullscreen on the preview
 			if (el.requestFullscreen) el.requestFullscreen().catch(()=>{});
 				else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 
 			preview.focus();
-			// if nothing has been shown yet, at least show the initial prompt
+			// if nothing has been shown yet at least show the initial prompt
 			if (ptr === 0 && !rawText) loadExample(modeSelect.value);
 				else render();
 		} else {
@@ -2213,7 +2189,7 @@ syscall
 		if (ev.key === 'F1'){ return; }
 		// F2 = Toggles auto typing
 		if (ev.key === 'F2'){
-			if (ev.repeat) return;         // avoid multiple toggles when holding the key
+			if (ev.repeat) return;
 			ev.preventDefault();
 			toggleAutoTyping();
 			return;
@@ -2240,14 +2216,12 @@ syscall
 		if (ev.key === 'F5'){ return; }
 		// F6: toggle generation mode
 		if (ev.key === 'F6') {
-			// Se sto tentando di attivarla ma c'è un file caricato → blocca e avvisa
 			const wantsOn = !generateChk.checked;
 			if (wantsOn && userLoadedFile) {
 				alert('Generation is disabled because a file is loaded. Clear the file to enable generation.');
 				return;
 			}
 			generateChk.checked = wantsOn;
-			// notifica i listener esistenti (mantiene la logica unica)
 			generateChk.dispatchEvent(new Event('change', { bubbles: true }));
 			ev.preventDefault();
 			return;
@@ -2267,7 +2241,7 @@ syscall
 			ev.preventDefault();
 			updateCleanBtn && updateCleanBtn();
 			return;
-			}
+		}
 		// F10 = toggle pc stats in cleanMode
 		if (ev.key === 'F10'){
 			if (!document.body.classList.contains('clean')){
@@ -2281,11 +2255,10 @@ syscall
 		}
 		if (ev.key === 'F12'){ return; }
 
-		// Backspace / Delete = Removes a character
+		// Backspace / Delete
 		if (ev.key === 'Backspace' || ev.key === 'Delete') {
 			ev.preventDefault();
 
-			// ferma eventuale burst di micro-typing
 			if (typeof burstTimer !== 'undefined' && burstTimer) {
 				clearInterval(burstTimer);
 				burstTimer = null;
@@ -2293,7 +2266,6 @@ syscall
 
 			if (ptr > 0) {
 				ptr -= 1;
-				// forza il render completo perché stiamo andando indietro
 				if (typeof render === 'function') render(true);
 				try { playKeySound?.(); } catch {}
 			}
@@ -2302,7 +2274,7 @@ syscall
 
 		// ESC = Exit clean mode / clear board
 		if (ev.key === 'Escape'){
-			if (cleanMode){                // esci dal clean se attivo
+			if (cleanMode){
 				cleanMode = false;
 				toggleCleanMode && toggleCleanMode(false);
 				updateCleanBtn && updateCleanBtn();
@@ -2312,28 +2284,27 @@ syscall
 
 			if (burstTimer){ clearInterval(burstTimer); burstTimer = null; }
 
-			// reset testo/preview immediato
+			// reset text/preview
 			rawText = '';
 			ptr = 0;
 			screen.innerHTML = '';
 			userLoadedFile = false;
 			warnedGenWithFile = false;
 
-			// reset sorgente (textarea) subito, senza aspettare la digitazione
+			// reset textarea
 			const source = document.getElementById('source');
 			source && (source.value = examples.code);
 
-			// reset file di testo
+			// reset input file
 			const fileInput = document.getElementById('fileInput');
 			fileInput && (fileInput.value = '');
 
-			// cursore all'inizio
+			// cursor at beginning
 			if (typeof cursor !== 'undefined'){
 				cursor.style.top = '0px';
 				cursor.style.left = '0px';
 			}
 
-			// ridisegna subito
 			(typeof scheduleRender === 'function' ? scheduleRender : (typeof render==='function'&&render))?.();
 
 			hideOverlay?.();
@@ -2355,19 +2326,19 @@ syscall
 	});
 
 	function type(ev){
-		// calcola il chunk
+		// evaluate chunk
 		const before = ptr;
 		let chunk = parseInt((chunkRange && chunkRange.value) || '4', 10) || 4;
 		if (fastMode) chunk = Math.min(40, chunk * 4);
 		if (ev.code === 'Space') chunk *= 3;
 
 
-		// interrompi un eventuale burst ancora in corso
+		// stop burst if active
 		if (burstTimer){ clearInterval(burstTimer); burstTimer = null; }
 
 		const maxCanType = rawText.length - ptr;
 
-		// se chunk <= 1 (o siamo a fine buffer) → singolo carattere
+		// if chunk <= 1 (or we are at the end of the buffer) → single character
 		if (chunk <= 1 || maxCanType <= 1){
 			if (maxCanType > 0){
 				ptr += 1;
@@ -2376,7 +2347,7 @@ syscall
 			}
 			if (ptr === rawText.length) maybeGenerateNextBlock?.();
 		} else {
-			// micro-typing: n caratteri uno dopo l’altro
+			// micro-typing: n characters one after the other
 			burstLeft = Math.min(chunk, maxCanType);
 			burstTimer = setInterval(() => {
 				if (burstLeft <= 0){
@@ -2407,14 +2378,14 @@ syscall
 			el.style.fontSize = `${size}px`;
 		});
 
-		// update cursor right away (updates --lh via render pipeline)
+		// update cursor right away
 		resyncCursorAfterLayout && resyncCursorAfterLayout()
 	});
 
 	fontSelect?.addEventListener('change', () => {
 		const val = fontSelect.value;
 
-		// If the option uses a CSS var stack (e.g., var(--ui-orbitron)), apply it directly.
+		// If the option uses a CSS var stack
 		if (val && val.startsWith('var(')) {
 			const scope = document.querySelector('.left') || document.body;
 			scope.style.setProperty('--code-mono', val);
@@ -2427,7 +2398,7 @@ syscall
 			return;
 		}
 
-		// Otherwise fall back to name-based selection (loads via GOOGLE_FONTS if mapped)
+		// Otherwise fall back to name-based selection
 		const fontName = fontSelect.options[fontSelect.selectedIndex]?.text || 'JetBrains Mono';
 		setFont(fontName);
 
@@ -2447,7 +2418,7 @@ syscall
 
 	cleanBtn?.addEventListener('click', (ev) => {
 		ev.preventDefault();
-		cleanMode = !cleanMode;                 // usa la tua variabile esistente
+		cleanMode = !cleanMode;
 		toggleCleanMode && toggleCleanMode(cleanMode);
 		updateCleanBtn();
 	});
@@ -2462,7 +2433,7 @@ syscall
 	if (y) y.textContent = '© ' + new Date().getFullYear();
 })();
 
-// --- Suono tastiera con upload personalizzato e toggle ---
+// --- Keyboard sound with custom upload and toggle ---
 let soundMuted = false;
 let customSoundBuffer = null;
 let useCustomSound = false;
@@ -2489,106 +2460,106 @@ let __kb_compressor = null;
 let __kb_noiseBuf = null;
 
 function __kb_ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (!__kb_masterGain) {
-    __kb_masterGain = audioCtx.createGain();
-    __kb_masterGain.gain.value = soundMuted ? 0.0001 : (masterVolume * 0.9);
+	if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+	if (!__kb_masterGain) {
+		__kb_masterGain = audioCtx.createGain();
+		__kb_masterGain.gain.value = soundMuted ? 0.0001 : (masterVolume * 0.9);
 
-    __kb_compressor = audioCtx.createDynamicsCompressor();
-    __kb_compressor.threshold.value = -12;
-    __kb_compressor.knee.value = 20;
-    __kb_compressor.ratio.value = 6;
-    __kb_compressor.attack.value = 0.002;
-    __kb_compressor.release.value = 0.03;
+		__kb_compressor = audioCtx.createDynamicsCompressor();
+		__kb_compressor.threshold.value = -12;
+		__kb_compressor.knee.value = 20;
+		__kb_compressor.ratio.value = 6;
+		__kb_compressor.attack.value = 0.002;
+		__kb_compressor.release.value = 0.03;
 
-    __kb_compressor.connect(__kb_masterGain).connect(audioCtx.destination);
-  }
+		__kb_compressor.connect(__kb_masterGain).connect(audioCtx.destination);
+	}
 }
 
 function __kb_makeNoiseBuffer() {
-  // Short, high-damped burst to emulate switch “click”
-  const sr = audioCtx.sampleRate;
-  const len = Math.floor(sr * 0.02);
-  const buf = audioCtx.createBuffer(1, len, sr);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) {
-    const t = i / len;
-    // slightly colored noise + strong exponential damping towards the end
-    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 6);
-  }
-  return buf;
+	// Short, high-damped burst to emulate switch “click”
+	const sr = audioCtx.sampleRate;
+	const len = Math.floor(sr * 0.02);
+	const buf = audioCtx.createBuffer(1, len, sr);
+	const data = buf.getChannelData(0);
+	for (let i = 0; i < len; i++) {
+		const t = i / len;
+		// slightly colored noise + strong exponential damping towards the end
+		data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 6);
+	}
+	return buf;
 }
 
 // Default keyboard click = noise burst + short blip + soft thock
 function playDefaultClick() {
-  if (soundMuted) return;
-  __kb_ensureAudio();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+	if (soundMuted) return;
+	__kb_ensureAudio();
+	if (audioCtx.state === 'suspended') audioCtx.resume();
 
-  const now = audioCtx.currentTime;
+	const now = audioCtx.currentTime;
 
-  // 1) Noise burst (the "click")
-  if (!__kb_noiseBuf) __kb_noiseBuf = __kb_makeNoiseBuffer();
-  const noise = audioCtx.createBufferSource();
-  noise.buffer = __kb_noiseBuf;
-  const nGain = audioCtx.createGain();
-  nGain.gain.setValueAtTime(0, now);
-  nGain.gain.linearRampToValueAtTime(0.18 * masterVolume, now + 0.002);
-  nGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
-  noise.connect(nGain).connect(__kb_compressor);
-  noise.start(now);
+	// 1) Noise burst (the "click")
+	if (!__kb_noiseBuf) __kb_noiseBuf = __kb_makeNoiseBuffer();
+	const noise = audioCtx.createBufferSource();
+	noise.buffer = __kb_noiseBuf;
+	const nGain = audioCtx.createGain();
+	nGain.gain.setValueAtTime(0, now);
+	nGain.gain.linearRampToValueAtTime(0.18 * masterVolume, now + 0.002);
+	nGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+	noise.connect(nGain).connect(__kb_compressor);
+	noise.start(now);
 
-  // 2) Short square blip (very quick, decaying pitch)
-  const osc = audioCtx.createOscillator();
-  osc.type = 'square';
-  const f0 = 2500 + Math.random() * 500;
-  osc.frequency.setValueAtTime(f0, now);
-  osc.frequency.linearRampToValueAtTime(1300, now + 0.012);
-  const oGain = audioCtx.createGain();
-  oGain.gain.setValueAtTime(0, now);
-  oGain.gain.linearRampToValueAtTime(0.10 * masterVolume, now + 0.0015);
-  oGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
-  osc.connect(oGain).connect(__kb_compressor);
-  osc.start(now);
-  osc.stop(now + 0.035);
+	// 2) Short square blip (very quick, decaying pitch)
+	const osc = audioCtx.createOscillator();
+	osc.type = 'square';
+	const f0 = 2500 + Math.random() * 500;
+	osc.frequency.setValueAtTime(f0, now);
+	osc.frequency.linearRampToValueAtTime(1300, now + 0.012);
+	const oGain = audioCtx.createGain();
+	oGain.gain.setValueAtTime(0, now);
+	oGain.gain.linearRampToValueAtTime(0.10 * masterVolume, now + 0.0015);
+	oGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+	osc.connect(oGain).connect(__kb_compressor);
+	osc.start(now);
+	osc.stop(now + 0.035);
 
-  // 3) Low "thock" tail (soft, very short)
-  const th = audioCtx.createOscillator();
-  th.type = 'sine';
-  th.frequency.setValueAtTime(180 + Math.random() * 20, now);
-  const tGain = audioCtx.createGain();
-  tGain.gain.setValueAtTime(0, now);
-  tGain.gain.linearRampToValueAtTime(0.08 * masterVolume, now + 0.004);
-  tGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
-  th.connect(tGain).connect(__kb_compressor);
-  th.start(now);
-  th.stop(now + 0.07);
+	// 3) Low "thock" tail (soft, very short)
+	const th = audioCtx.createOscillator();
+	th.type = 'sine';
+	th.frequency.setValueAtTime(180 + Math.random() * 20, now);
+	const tGain = audioCtx.createGain();
+	tGain.gain.setValueAtTime(0, now);
+	tGain.gain.linearRampToValueAtTime(0.08 * masterVolume, now + 0.004);
+	tGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+	th.connect(tGain).connect(__kb_compressor);
+	th.start(now);
+	th.stop(now + 0.07);
 }
 
 // Custom file playback goes through the same master chain
 async function playCustomSound() {
-  if (soundMuted || !customSoundBuffer) return;
-  __kb_ensureAudio();
-  if (audioCtx.state === 'suspended') await audioCtx.resume();
+	if (soundMuted || !customSoundBuffer) return;
+	__kb_ensureAudio();
+	if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-  const source = audioCtx.createBufferSource();
-  source.buffer = customSoundBuffer;
+	const source = audioCtx.createBufferSource();
+	source.buffer = customSoundBuffer;
 
-  // Optional per-file gain; master volume is handled by the master gain
-  const g = audioCtx.createGain();
-  g.gain.value = 1.0;
+	// Optional per-file gain; master volume is handled by the master gain
+	const g = audioCtx.createGain();
+	g.gain.value = 1.0;
 
-  source.connect(g).connect(__kb_compressor);
-  source.start(0);
+	source.connect(g).connect(__kb_compressor);
+	source.start(0);
 }
 
-// riproduci il suono corretto
+// play the correct sound
 function playKeySound() {
 	if (useCustomSound && customSoundBuffer) playCustomSound();
 		else playDefaultClick();
 }
 
-// gestisci caricamento file
+// manage file uploads
 const soundFileInput = document.getElementById('soundFileInput');
 const soundFileLabel = document.getElementById('soundFileLabel');
 soundFileInput.addEventListener('change', async e => {
@@ -2601,7 +2572,7 @@ soundFileInput.addEventListener('change', async e => {
 	soundFileLabel.textContent = `Custom: ${file.name}`;
 });
 
-// bottone mute/unmute
+// button mute/unmute
 const toggleSoundBtn = document.getElementById('toggleSoundBtn');
 toggleSoundBtn.addEventListener('click', () => {
 	soundMuted = !soundMuted;
@@ -2683,14 +2654,14 @@ const THEMES = {
 	matrixGreen: {
 		code:     "#AFFF8C",  // base text verde chiaro
 		kw:       "#39FF14",  // keyword neon
-		type:     "#7DE3FF",  // tipi in ciano (leggera variazione)
-		str:      "#B9FF9E",  // stringhe verde latte
-		num:      "#AEFFB8",  // numeri mint
-		comment:  "#355a35",  // commenti verdone spento
-		fn:       "#9AE6C7",  // funzioni verde-azzurro
+		type:     "#7DE3FF",  // types in cyan
+		str:      "#B9FF9E",  // strings milky green
+		num:      "#AEFFB8",  // numbers mint
+		comment:  "#355a35",  // comments green light off
+		fn:       "#9AE6C7",  // functions green-blue
 		punct:    "#AFFF8C",
 		loglevel: "#B4FF6E",
-		bgPreset: "solid-black", // sfondo coerente
+		bgPreset: "solid-black", // curr bg
 	},
 
 	// 4) Terminal Sea → background "terminal-ice"
@@ -2718,7 +2689,7 @@ const THEMES = {
 	}
 };
 
-// --- Tabs per #colorPanel ---
+// --- Tabs #colorPanel ---
 function initColorTabs(){
 	const panel = document.getElementById('colorPanel');
 	if (!panel) return;
@@ -2773,7 +2744,6 @@ function applyPreviewBgFromPreset(name){
 			break;
 		case 'default':
 		default:
-			// il tuo default: leggero radial + base #051016
 			previewEl.style.background =
 				'#051016'; 
 			break;
@@ -2786,7 +2756,7 @@ function applySolidBg(hex){
 	previewEl.style.backdropFilter = '';
 }
 
-// overlays (scanlines/vignette) prese dalle checkbox
+// overlays (scanlines/vignettes) taken from checkboxes
 function updateBgOverlaysFromUI(){
 	const sl = document.getElementById('bgScanlinesChk')?.checked;
 	const vg = document.getElementById('bgVignetteChk')?.checked;
@@ -2795,7 +2765,7 @@ function updateBgOverlaysFromUI(){
 	previewEl.classList.toggle('bg-vignette', !!vg);
 }
 
-// --- Wiring eventi per la TAB Background ---
+// --- Wiring events for the TAB Background ---
 (function wireBackgroundTab(){
 	const grid = document.getElementById('bgGrid');
 	const hex = document.getElementById('bgHexInput');
@@ -2813,38 +2783,37 @@ function updateBgOverlaysFromUI(){
 		const el = e.target.closest('.bg-tile');
 		if (!el) return;
 		const preset = el.dataset.preset;
-		applyPreviewBgFromPreset(preset);   // usa la tua funzione esistente
+		applyPreviewBgFromPreset(preset);
 		setActiveBgPresetUI(preset);
 	});
 
 	btn?.addEventListener('click', ()=>{
 		const v = normalizeHex(hex?.value);
-		if (v) applySolidBg(v);             // tinta unita personalizzata
+		if (v) applySolidBg(v);
 	});
 	hex?.addEventListener('keydown', (e)=>{
 		if (e.key === 'Enter'){
 			const v = normalizeHex(hex.value);
 			if (v) applySolidBg(v);
 		}
-		e.stopPropagation();                // così i tasti non “scrivono” nella preview
+		e.stopPropagation();
 	});
 
 	sl?.addEventListener('change', updateBgOverlaysFromUI);
 	vg?.addEventListener('change', updateBgOverlaysFromUI);
 
-	// Stato iniziale
+	// Initial state
 	applyPreviewBgFromPreset('default');
 	setActiveBgPresetUI('default');
 	updateBgOverlaysFromUI();
 
-	// opzionale: esponi l’API per i Theme presets (se li usi per cambiare anche lo sfondo)
 	window.setActiveBgPresetUI = setActiveBgPresetUI;
 })();
 
-// --- Attiva le tabs all'avvio (chiama dopo che il DOM c'è) ---
+// --- Activate tabs on startup ---
 initColorTabs();
 
-// --- Theme buttons nella tab 3 (riusano applyTheme esistente) ---
+// --- Theme buttons in tab 3 ---
 document.querySelectorAll('#tabThemes .theme-btn').forEach(btn=>{
 	btn.addEventListener('click', ()=>applyTheme(btn.dataset.theme));
 });
@@ -2856,11 +2825,11 @@ function applyTheme(name){
 
 	const scope = document.querySelector('.left') || document.body;
 
-	// colore base testo (preview + source) e cursore
+	// base color of text (preview + source) and cursor
 	scope.style.setProperty('--code-color', t.code);
 	scope.style.setProperty('--cursor-color', t.code);
 
-	// palette sintassi
+	// palette syntax
 	scope.style.setProperty('--kw', t.kw);
 	scope.style.setProperty('--type', t.type);
 	scope.style.setProperty('--str', t.str);
@@ -2870,16 +2839,16 @@ function applyTheme(name){
 	scope.style.setProperty('--punct', t.punct);
 	scope.style.setProperty('--loglevel', t.loglevel);
 
-	// riflette il color base nell'input HEX, se presente
+	// reflect the base color in the HEX input
 	if (typeof colorHexInput !== 'undefined' && colorHexInput) {
 		colorHexInput.value = t.code;
 	}
 
-	// aggiorna anche lo SFONDO della preview
+	// also updates the preview background
 	if (t.bgPreset && typeof applyPreviewBgFromPreset === 'function') {
 		applyPreviewBgFromPreset(t.bgPreset);
 		if (typeof window.setActiveBgPresetUI === 'function'){
-			window.setActiveBgPresetUI(t.bgPreset); // evidenzia il tile
+			window.setActiveBgPresetUI(t.bgPreset);
 		}
 	}
 
@@ -2889,7 +2858,7 @@ function applyTheme(name){
 function setCodeColor(hex){
 	const scope = document.querySelector('.left') || document.body;
 	scope.style.setProperty('--code-color', hex);
-	scope.style.setProperty('--cursor-color', hex);   // cursore = stesso colore
+	scope.style.setProperty('--cursor-color', hex);
 }
 
 function normalizeHex(v){
@@ -2904,7 +2873,7 @@ function normalizeHex(v){
 	return s;
 }
 
-// click su palette
+// click on palette
 if (colorSwatches){
 	colorSwatches.addEventListener('click', (e)=>{
 		const btn = e.target.closest('.swatch');
@@ -2917,7 +2886,7 @@ if (colorSwatches){
 	});
 }
 
-// apply da input HEX
+// apply from input HEX
 if (applyColorBtn){
 	applyColorBtn.addEventListener('click', ()=>{
 		const hex = normalizeHex(colorHexInput?.value || '');
@@ -2926,7 +2895,7 @@ if (applyColorBtn){
 	});
 }
 
-// invio su input HEX
+// send to HEX input
 if (colorHexInput){
 	colorHexInput.addEventListener('keydown', (ev)=>{
 		if (ev.key === 'Enter'){
@@ -2937,13 +2906,12 @@ if (colorHexInput){
 	});
 }
 
-// toggle monocolore
+// toggle monocolor
 if (monoColorChk){
 	monoColorChk.addEventListener('change', ()=>{
 		const preview = document.querySelector('.preview');
 		if (!preview) return;
 		preview.classList.toggle('mono', monoColorChk.checked);
-		// re-render per applicare eventuali nuove classi
 		render && render();
 	});
 }
@@ -2960,37 +2928,37 @@ if (themePresets){
 // === RESET AUDIO ===
 const resetAudioBtn = document.getElementById('resetAudioBtn');
 function resetAudio(){
-	// torna al click generato via Web Audio
-	customSoundBuffer = null;   // <— niente window.
-	useCustomSound   = false;   // <— niente window.
+	// returns to the click generated via Web Audio
+	customSoundBuffer = null;
+	useCustomSound   = false;
 
-	// pulisci input e label
+	// clear input & label
 	if (soundFileInput)  soundFileInput.value = '';
 	if (soundFileLabel)  soundFileLabel.textContent = 'Default click';
 }
 resetAudioBtn && resetAudioBtn.addEventListener('click', resetAudio);
 
-/* ===== Fake system stats (Clean mode, F10) ===== */
+/* ===== Fake system stats ===== */
 let statsOn = false;
 let statsTick = null;
 let startedAt = Date.now();
 
-const BUF = 180; // ~ ultimi 180 campioni
+const BUF = 180;
 const cpuData = Array(BUF).fill(0.2);
-const memUsed = Array(BUF).fill(3.2);      // GB
-const memCache = Array(BUF).fill(1.2);     // GB
+const memUsed = Array(BUF).fill(3.2);
+const memCache = Array(BUF).fill(1.2);
 const memTotalGB = 8;
-const netUp = Array(BUF).fill(0.2);        // MB/s
-const netDown = Array(BUF).fill(0.4);      // MB/s
+const netUp = Array(BUF).fill(0.2);
+const netDown = Array(BUF).fill(0.4);
 
 // STACK fake
 const stackLines = [];
-let spAddr = 0x00007ffdf000;    // base finta
+let spAddr = 0x00007ffdf000;
 function hex(n,len=12){ return '0x' + n.toString(16).padStart(len,'0'); }
 function randByte(){ return Math.floor(Math.random()*256); }
 function randWord(){ return Array.from({length:8}, ()=>randByte()); }
 function renderStack(){
-	// mantieni 10-12 righe
+	// keep 10-12 rows
 	const max = 12;
 	while (stackLines.length>max) stackLines.shift();
 	const el = document.getElementById('stackView');
@@ -2999,14 +2967,14 @@ function renderStack(){
 }
 
 function pushStackRow(){
-	// una riga = indirizzo crescente e 8 byte + commento registro random
+	// Row: increasing address and 8 bytes + random register comment
 	const bytes = randWord();
 	const addr = hex(spAddr, 12);
 	const hexs = bytes.map(b=>b.toString(16).padStart(2,'0')).join(' ');
 	const regs = ['rax','rbx','rcx','rdx','rsi','rdi','rbp','rip'];
 	const comment = regs[Math.floor(Math.random()*regs.length)];
 	stackLines.push(`${addr}  ${hexs}   ; ${comment}`);
-	spAddr += 0x10; // avanza
+	spAddr += 0x10;
 	renderStack();
 }
 
@@ -3097,14 +3065,14 @@ function tickStats(){
 	const cpu = rndWalk(lastCpu, 0.05, 0.95, 0.08);
 	push(cpuData, cpu);
 
-	// Memoria
+	// Memory
 	const lastU = memUsed[memUsed.length-1];
 	const lastC = memCache[memCache.length-1];
 	const u = rndWalk(lastU, 1.4, 6.6, 0.18);
 	const c = rndWalk(lastC, 0.4, 2.4, 0.10);
 	push(memUsed, u); push(memCache, c);
 
-	// Rete
+	// Network
 	const lastUp = netUp[netUp.length-1];
 	const lastDn = netDown[netDown.length-1];
 	const up = rndWalk(lastUp, 0.0, 3.0, 0.35);
@@ -3114,7 +3082,7 @@ function tickStats(){
 	// Stack line
 	pushStackRow();
 
-	// Disegno
+	// Draw
 	drawLine($cpuC.getContext('2d'), cpuData, '#39ff14');
 	drawMem($memC.getContext('2d'), memUsed, memCache);
 	const netSum = netDown.map((v,i)=> (v+netUp[i])/10);
@@ -3146,7 +3114,7 @@ function toggleStats(force){
 		else stopStats();
 }
 
-/* Uscita dalla Clean: spegni stats */
+// exit Clean: turn off stats
 document.addEventListener('fullscreenchange', () => {
 	if (!document.fullscreenElement) toggleStats(false);
 });
@@ -3163,37 +3131,35 @@ window.addEventListener("load", () => {
 const preview = document.getElementById('preview');
 const mobileKeyboard = document.getElementById('mobileKeyboard');
 
-// Mostra tastiera al tocco
+// show touch keyboard
 preview.addEventListener('touchend', () => {
-  if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-    setTimeout(() => mobileKeyboard.focus(), 50);
-  }
+	if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+		setTimeout(() => mobileKeyboard.focus(), 50);
+	}
 });
 
-// Mantiene la tastiera aperta
+// keeps the keyboard open
 mobileKeyboard.addEventListener('blur', (e) => {
-  if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
-    setTimeout(() => e.target.focus(), 100);
-  }
+	if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+		setTimeout(() => e.target.focus(), 100);
+	}
 });
 
-// Simula la pressione dei tasti
+// simulates key presses
 mobileKeyboard.addEventListener('input', (e) => {
-  const val = e.target.value;
-  if (val.length > 0) {
-    const lastChar = val.slice(-1);
-    e.target.value = ''; // reset
+	const val = e.target.value;
+	if (val.length > 0) {
+		const lastChar = val.slice(-1);
+		e.target.value = '';
 
-    // Crea evento tastiera per TyperScene
-    const keyEvent = new KeyboardEvent('keydown', {
-      key: lastChar,
-      bubbles: true,
-      cancelable: true
-    });
-    document.dispatchEvent(keyEvent);
-  }
+		const keyEvent = new KeyboardEvent('keydown', {
+			key: lastChar,
+			bubbles: true,
+			cancelable: true
+		});
+		document.dispatchEvent(keyEvent);
+	}
 });
-
-		</script>
+</script>
 	</body>
 </html>
