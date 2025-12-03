@@ -144,9 +144,3 @@ Released under **CC‑BY‑4.0**. See the `LICENSE` file or <https://creativecom
 
 **Author**: T0ls — TyperScene  
 **Fonts**: Google Fonts (Orbitron, Pixelify Sans, Bungee, Audiowide, Iceland, Megrim, Syncopate; JetBrains Mono, etc.).
-
----
-
-### Screenshot / GIF
-
-_Add a screenshot or GIF of the Clean/Cinematic mode and the control panels (recommended for the repo)._
